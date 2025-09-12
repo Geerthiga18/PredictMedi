@@ -8,3 +8,7 @@ JWT_SECRET = os.getenv("JWT_SECRET", "CHANGE_ME__GENERATE_A_REAL_ONE")
 JWT_ALG = "HS256"
 
 DIABETES_API_URL = os.getenv("DIABETES_API_URL", "http://127.0.0.1:8001")
+
+HEART_API_URL = os.getenv("HEART_API_URL", "http://127.0.0.1:8002")
+FDC_API_KEY = os.getenv("FDC_API_KEY", "")
+FDC_BASE    = "https://api.nal.usda.gov/fdc/v1"

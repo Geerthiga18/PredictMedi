@@ -1,0 +1,32 @@
+{
+  "features": [
+    "age",
+    "sex",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal"
+  ],
+  "target": "target",
+  "created_at": "2025-09-12 17:23:46",
+  "seed": 42,
+  "calibration": "isotonic",
+  "artifacts": {
+    "preproc": "heart_preproc.joblib",
+    "base_lr": "heart_base_lr.joblib",
+    "calibrated": "heart_calibrated.joblib",
+    "background": "background.npy"
+  },
+  "metrics": {
+    "accuracy": 0.8032786885245902,
+    "roc_auc": 0.8685064935064934,
+    "f1": 0.8333333333333334
+  }
+}

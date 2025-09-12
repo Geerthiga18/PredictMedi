@@ -14,6 +14,9 @@ import ActivityLog from "./pages/ActivityLog";
 import MealsLog from "./pages/MealsLog";
 import "./index.css";
 import DiabetesCheck from "./pages/DiabetesCheck";
+import HeartCheck from "./pages/HeartCheck";
+import CoachCard from "./components/CoachCard";
+import TodayProgress from "./components/TodayProgress";
 
 function Protected({ token, children }) {
   if (!token) return <Navigate to="/login" replace />;
@@ -96,6 +99,14 @@ export default function App() {
             >
               Diabetes
             </NavLink>
+            <NavLink
+              to="/heart"
+              className={({ isActive }) =>
+                `${linkBase} ${isActive ? linkActive : ""}`
+              }
+            >
+              Heart Disease
+            </NavLink>
 
             <NavLink
               to="/meals"
@@ -137,21 +148,36 @@ export default function App() {
       {/* Main content */}
       <main className={container}>
         <Routes>
-          <Route
-            path="/"
-            element={
-              <Protected token={token}>
-                <div className={card}>
-                  <h2 className="text-2xl font-semibold tracking-tight">
-                    Welcome {user?.name || user?.email}
-                  </h2>
-                  <p className="mt-2 text-slate-600">
-                    Use the nav to log Activity & Meals.
-                  </p>
-                </div>
-              </Protected>
-            }
+     <Route
+  path="/"
+  element={
+    <Protected token={token}>
+      <div className={card}>
+        <h2 className="text-2xl font-semibold tracking-tight">
+          Welcome {user?.name || user?.email}
+        </h2>
+        <p className="mt-2 text-slate-600">
+          Use the nav to log Activity & Meals.
+        </p>
+
+        {/* Coach card */}
+        <div className="mt-6">
+          <CoachCard
+            token={token}
+            activity="light"
+            goal="maintain"
+            sugarG={0}
+            activityMinutes={30}
           />
+          <div className="mt-6">
+  <TodayProgress token={token} activity="light" goal="maintain" />
+</div>
+        </div>
+      </div>
+    </Protected>
+  }
+/>
+
           <Route
             path="/activity"
             element={
@@ -177,21 +203,23 @@ export default function App() {
             }
           />
           <Route
-            path="/login"
+            path="/heart"
             element={
-              <div className={card}>
-                <Login onAuth={onAuth} />
-              </div>
+              <Protected token={token}>
+                <HeartCheck token={token} />
+              </Protected>
             }
           />
-          <Route
-            path="/register"
-            element={
-              <div className={card}>
-                <Register onAuth={onAuth} />
-              </div>
-            }
-          />
+        <Route
+  path="/login"
+  element={token ? <Navigate to="/" replace /> : <Login onAuth={onAuth} />}
+/>
+<Route
+  path="/register"
+  element={token ? <Navigate to="/" replace /> : <Register onAuth={onAuth} />}
+/>
+
+          
         </Routes>
       </main>
     </div>

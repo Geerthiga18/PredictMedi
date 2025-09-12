@@ -1,5 +1,5 @@
 # backend/app/routes_activity.py
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from datetime import datetime
 from .deps import get_current_user
 from .schemas import ActivityIn
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/activity", tags=["activity"])
 async def log_activity(payload: ActivityIn, user=Depends(get_current_user)):
     doc = {
         "userId": user["id"],
-        "date": payload.date.isoformat(),
+        "dateISO": payload.date.isoformat(),
         "minutes": payload.minutes,
         "steps": payload.steps,
         "type": payload.type,
@@ -22,5 +22,5 @@ async def log_activity(payload: ActivityIn, user=Depends(get_current_user)):
 
 @router.get("/logs")
 async def list_activity(user=Depends(get_current_user), limit: int = 30):
-    cur = activity.find({"userId": user["id"]}).sort("date", -1).limit(limit)
+    cur = activity.find({"userId": user["id"]}).sort("dateISO", -1).limit(limit)
     return {"logs": [doc async for doc in cur]}

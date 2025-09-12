@@ -15,7 +15,7 @@ async def register(payload: RegisterIn):
         "email": payload.email.lower(),
         "passwordHash": hash_password(payload.password),
         "age": payload.age,
-        "sex": payload.sex or "other",
+       "sex": (payload.sex or "other").lower(), 
         "heightCm": payload.heightCm,
         "weightKg": payload.weightKg,
     }

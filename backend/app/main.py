@@ -1,12 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from .routes_auth import router as auth_router
+from .routes_users import router as users_router
 from .routes_activity import router as activity_router
 from .routes_meals import router as meals_router
+from .routes_nutrition import router as nutrition_router
+from .routes_coach import router as coach_router
 import numpy as np
-
-
-from .config import DIABETES_API_URL
+from .config import DIABETES_API_URL, HEART_API_URL
 import httpx
 
 # 1) Create the app first
@@ -23,8 +25,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(activity_router)
 app.include_router(meals_router)
+app.include_router(nutrition_router)
+app.include_router(coach_router)
+
 
 # 3) (Optional) DB init — keep commented while you’re debugging
 # from .db import init_db
@@ -37,8 +44,10 @@ app.include_router(meals_router)
 #         print("[db] init FAILED:", e)
 
 # --- Demo ML endpoints (fine to keep) ---
+
 class PredictPayload(BaseModel):
     features: dict
+    top_k: int | None = None 
 
 def sigmoid(x: float) -> float:
     return 1.0 / (1.0 + np.exp(-x))
@@ -55,17 +64,15 @@ async def diabetes_predict(payload: PredictPayload):
         r.raise_for_status()
         return r.json()
 
+
 @app.post("/ml/heart/predict")
-def heart_predict(payload: PredictPayload):
-    f = payload.features
-    z = 0.0
-    z += (f.get("age",50) - 45) / 10 * 0.8
-    z += (f.get("trestbps",130) - 120) / 20 * 0.5
-    prob = float(sigmoid(z))
-    return {"probability": prob, "label": int(prob >= 0.5), "note": "DEMO – replace with trained model"}
+async def heart_predict(payload: PredictPayload):        # <-- make it async + proxy
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        r = await client.post(f"{HEART_API_URL}/predict", json=payload.model_dump())
+        r.raise_for_status()
+        return r.json()
 
 # 4) Import routers AFTER app is defined, then include them
-from .routes_auth import router as auth_router
-from .routes_users import router as users_router
-app.include_router(auth_router)
-app.include_router(users_router)
+
+
+

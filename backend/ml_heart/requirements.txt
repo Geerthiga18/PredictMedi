@@ -1,0 +1,7 @@
+echo fastapi
+echo uvicorn
+echo scikit-learn
+echo pandas
+echo numpy
+echo joblib
+echo shap

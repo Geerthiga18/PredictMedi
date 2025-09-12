@@ -12,5 +12,5 @@ meals    = _db["meal_logs"]
 async def init_db():
     await _client.server_info()  # fast fail if URI wrong
     await users.create_index("email", unique=True)
-    await activity.create_index([("userId", 1), ("date", -1)])
-    await meals.create_index([("userId", 1), ("date", -1)])
+    await activity.create_index([("userId", 1), ("dateISO", -1)])
+    await meals.create_index([("userId", 1), ("dateISO", -1)])
