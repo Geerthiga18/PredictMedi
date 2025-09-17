@@ -3,6 +3,7 @@ from bson import ObjectId
 from .deps import get_current_user
 from .db import users
 from .schemas import UserUpdate
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -27,3 +28,4 @@ async def update_me(payload: UserUpdate, user=Depends(get_current_user)):
         "age": user.get("age"), "sex": user.get("sex"),
         "heightCm": user.get("heightCm"), "weightKg": user.get("weightKg"),
     }}
+

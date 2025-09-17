@@ -168,6 +168,7 @@ export default function App() {
             goal="maintain"
             sugarG={0}
             activityMinutes={30}
+            dateISO={new Date().toISOString().slice(0,10)} 
           />
           <div className="mt-6">
   <TodayProgress token={token} activity="light" goal="maintain" />

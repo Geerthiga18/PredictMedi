@@ -1,88 +1,64 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 
-export default function CoachCard({ token, activity="light", goal="maintain", sugarG=0, activityMinutes=30 }) {
-  const [plan, setPlan] = useState(null);
-  const [tips, setTips] = useState([]);
-  const [mot, setMot] = useState(null);
+export default function CoachCard({ token, dateISO }) {
+  const [data, setData] = useState(null);
   const [err, setErr] = useState("");
 
-  useEffect(() => {
-    const today = new Date().toISOString().slice(0,10);
-    (async () => {
-      try {
-        const p = await api(`/coach/plan?activity=${activity}&goal=${goal}`, { token });
-        setPlan(p);
-      } catch (e) { setErr(e.message); }
-      try {
-        const t = await api(`/coach/tips?activity_minutes=${activityMinutes}&sugar_g_today=${sugarG}`, { token });
-        setTips(t.tips || []);
-      } catch {}
-      try {
-        const m = await api(`/coach/motivate?dateISO=${today}&goal=${goal}`, { token });
-        setMot(m);
-      } catch {}
-    })();
-  }, [token, activity, goal, sugarG, activityMinutes]);
+  useEffect(() => { load(); }, [dateISO]);
+
+  async function load() {
+    try {
+      setErr("");
+      const r = await api(`/coach/motivate${dateISO ? `?dateISO=${dateISO}` : ""}`, { token });
+      setData(r);
+    } catch (e) { setErr(e.message || "Failed to load coach"); }
+  }
+
+  if (err) return <div className="rounded-2xl bg-white p-5 shadow ring-1 ring-slate-100 text-red-600">{err}</div>;
+  if (!data) return <div className="rounded-2xl bg-white p-5 shadow ring-1 ring-slate-100">Loading…</div>;
+
+  const m = data.plan.macros || {};
+  const t = data.nutrition_totals || {};
+  const pct = (a, b) => !a || !b ? 0 : Math.min(100, Math.round((a/b)*100));
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow ring-1 ring-slate-100">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Your Daily Plan</h3>
-        {mot && (
-          <span className={`rounded-full px-3 py-1 text-sm ${
-            mot.score >= 85 ? "bg-emerald-100 text-emerald-700" :
-            mot.score >= 70 ? "bg-blue-100 text-blue-700" :
-                              "bg-amber-100 text-amber-700"
-          }`}>
-            Score: {mot.score}
-          </span>
-        )}
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-xl font-semibold">Daily Coach</h3>
+        <span className="text-sm text-slate-500">{data.dateISO}</span>
       </div>
 
-      {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
-      {!plan && !err && <p className="mt-2 text-sm text-slate-500">Loading…</p>}
+      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+        <Stat label="Calories" val={`${Math.round(t.kcal||0)} / ${m.kcal} kcal`} bar={pct(t.kcal, m.kcal)} />
+        <Stat label="Activity" val={`${data.minutes} / 30 min`} bar={Math.min(100, Math.round((data.minutes/30)*100))} />
+        <Stat label="Carb" val={`${Math.round(t.carb_g||0)} / ${m.carb_g} g`} bar={pct(t.carb_g, m.carb_g)} />
+        <Stat label="Protein" val={`${Math.round(t.protein_g||0)} / ${m.protein_g} g`} bar={pct(t.protein_g, m.protein_g)} />
+        <Stat label="Fat" val={`${Math.round(t.fat_g||0)} / ${m.fat_g} g`} bar={pct(t.fat_g, m.fat_g)} />
+        <Stat label="Sugar" val={`${Math.round(t.sugar_g||0)} g`} bar={Math.min(100, Math.round(((t.sugar_g||0)/50)*100))} />
+      </div>
 
-      {plan && (
-        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-          <Stat label="BMR" value={`${plan.bmr} kcal`} />
-          <Stat label="TDEE" value={`${plan.tdee} kcal`} />
-          <Stat label="Carbs" value={`${plan.macros.carb_g} g`} />
-          <Stat label="Protein" value={`${plan.macros.protein_g} g`} />
-          <Stat label="Fat" value={`${plan.macros.fat_g} g`} />
+      <div className="mt-4 rounded-lg bg-blue-50 p-3">
+        <div className="text-sm text-slate-700">
+          <b>Score:</b> {data.score}/100
         </div>
-      )}
-
-      {!!tips.length && (
-        <>
-          <h4 className="mt-4 font-medium">Tips</h4>
-          <ul className="mt-1 list-disc pl-5 text-sm text-slate-700">
-            {tips.map((t,i)=>(<li key={i}>{t}</li>))}
-          </ul>
-        </>
-      )}
-
-      {mot?.messages?.length ? (
-        <>
-          <h4 className="mt-4 font-medium">Today’s messages</h4>
-          <ul className="mt-1 list-disc pl-5 text-sm text-slate-800">
-            {mot.messages.map((m,i)=>(<li key={i}>{m}</li>))}
-          </ul>
-        </>
-      ) : null}
-
-      <p className="mt-4 text-xs text-slate-500">
-        Not medical advice. For diagnosis or treatment, consult a healthcare professional.
-      </p>
+        <ul className="mt-2 list-disc pl-5 text-slate-700">
+          {data.messages.map((m,i)=><li key={i}>{m}</li>)}
+        </ul>
+      </div>
     </div>
   );
 }
 
-function Stat({ label, value }) {
+function Stat({ label, val, bar }) {
   return (
-    <div className="rounded-xl bg-slate-50 px-3 py-2">
-      <p className="text-slate-500">{label}</p>
-      <p className="font-semibold text-slate-800">{value}</p>
+    <div>
+      <div className="flex justify-between text-slate-600">
+        <span>{label}</span><span className="font-medium text-slate-800">{val}</span>
+      </div>
+      <div className="mt-1 h-2 w-full rounded bg-slate-200">
+        <div className="h-2 rounded bg-blue-600" style={{ width: `${bar||0}%` }} />
+      </div>
     </div>
   );
 }

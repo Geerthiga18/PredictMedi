@@ -79,3 +79,19 @@ async def meals_summary(
                     totals[k] += v
 
     return {"dateISO": dateISO, "count": count, "totals": totals}
+
+@router.get("/day")
+async def get_meals_for_day(
+    dateISO: str = Query(..., min_length=8),
+    user=Depends(get_current_user)
+):
+    docs = [doc async for doc in meals.find({"userId": user["id"], "dateISO": dateISO})]
+    items = []
+    totals = {"kcal":0,"carb_g":0,"protein_g":0,"fat_g":0,"fiber_g":0,"sugar_g":0,"sodium_mg":0}
+    for d in docs:
+        for it in (d.get("items") or []):
+            items.append(it)
+            for k in totals:
+                v = it.get(k)
+                if isinstance(v,(int,float)): totals[k] += v
+    return {"dateISO": dateISO, "count": len(docs), "items": items, "totals": totals}

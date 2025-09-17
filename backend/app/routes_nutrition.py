@@ -1,19 +1,38 @@
 from fastapi import APIRouter, HTTPException, Query
 from .config import FDC_API_KEY, FDC_BASE
-import httpx
+import httpx, time
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
+
+# --- simple TTL cache in memory ---
+_food_cache: dict[int, tuple[float, dict]] = {}
+_CACHE_TTL = 60 * 60 * 24   # 24h
+_CACHE_MAX = 500
+
+def _cache_get(fid: int):
+    rec = _food_cache.get(fid)
+    if not rec: return None
+    ts, val = rec
+    if time.time() - ts > _CACHE_TTL:
+        _food_cache.pop(fid, None)
+        return None
+    return val
+
+def _cache_put(fid: int, val: dict):
+    if len(_food_cache) >= _CACHE_MAX:
+        # drop an arbitrary (oldest-ish) item
+        _food_cache.pop(next(iter(_food_cache)))
+    _food_cache[fid] = (time.time(), val)
 
 def _want(n):
     n = (n or "").lower()
     return n in {
-        "energy", "energy (atwater general factors)",      # name variants
+        "energy", "energy (atwater general factors)",
         "protein", "total lipid (fat)", "carbohydrate, by difference",
         "fiber, total dietary", "sugars, total including nlea", "sodium, na"
     }
 
 def pick_macros(food_json: dict):
-    """Return a minimal macro dict from FDC 'food' JSON."""
     out = {"kcal": None, "protein_g": None, "carb_g": None, "fat_g": None,
            "fiber_g": None, "sugar_g": None, "sodium_mg": None}
     for n in (food_json.get("foodNutrients") or []):
@@ -26,7 +45,6 @@ def pick_macros(food_json: dict):
             continue
         nm = name.lower()
         if "energy" in nm:
-            # Energy sometimes appears as kcal (1008) or Atwater (2047). Use kcal if provided.
             out["kcal"] = float(val)
         elif nm == "protein":
             out["protein_g"] = float(val)
@@ -39,7 +57,6 @@ def pick_macros(food_json: dict):
         elif "sugars" in nm:
             out["sugar_g"] = float(val)
         elif "sodium" in nm:
-            # FDC uses mg for sodium
             out["sodium_mg"] = float(val if unit == "mg" else val)
     return out
 
@@ -51,14 +68,12 @@ async def search_foods(q: str = Query(..., min_length=2), pageSize: int = 15):
         "api_key": FDC_API_KEY,
         "query": q,
         "pageSize": max(1, min(pageSize, 50)),
-        # Optional: filter to common data types
         "dataType": ["Survey (FNDDS)", "SR Legacy", "Foundation"],
     }
     async with httpx.AsyncClient(timeout=8) as client:
         r = await client.get(f"{FDC_BASE}/foods/search", params=params)
         r.raise_for_status()
         data = r.json()
-        # Return light results for UI picker
         items = []
         for f in data.get("foods", []):
             items.append({
@@ -75,18 +90,23 @@ async def search_foods(q: str = Query(..., min_length=2), pageSize: int = 15):
 async def food_detail(fdcId: int):
     if not FDC_API_KEY:
         raise HTTPException(500, "FDC_API_KEY not configured")
+
+    cached = _cache_get(fdcId)
+    if cached:
+        return cached
+
     async with httpx.AsyncClient(timeout=8) as client:
         r = await client.get(f"{FDC_BASE}/food/{fdcId}", params={"api_key": FDC_API_KEY})
         r.raise_for_status()
         food = r.json()
         macros = pick_macros(food)
-        # Prefer declared serving size; otherwise assume 100 g
         grams = food.get("servingSize") or 100
         unit  = food.get("servingSizeUnit") or "g"
-        return {
+        out = {
             "fdcId": food.get("fdcId"),
             "description": food.get("description"),
             "serving": {"amount": grams, "unit": unit},
             "macros_per_serving": macros,
-            "raw": food,
         }
+        _cache_put(fdcId, out)
+        return out

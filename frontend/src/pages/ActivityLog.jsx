@@ -22,7 +22,7 @@ export default function ActivityLog({ token }) {
     e.preventDefault();
     setMsg("");
     try {
-      await api("/activity/log", { method: "POST", token, body: {
+         await api("/activity/log/upsert", { method: "POST", token, body: {
         date, minutes: Number(minutes), steps: steps ? Number(steps) : undefined, type
       }});
       setMsg("Saved!");
@@ -48,10 +48,10 @@ export default function ActivityLog({ token }) {
         <tbody>
           {logs.map((r, i)=>(
             <tr key={i}>
-              <td>{r.date}</td>
-              <td>{r.minutes}</td>
-              <td>{r.steps ?? ""}</td>
-              <td>{r.type ?? ""}</td>
+             <td>{r.dateISO || r.date}</td>   {/* was r.date */}
+      <td>{r.minutes}</td>
+      <td>{r.steps ?? ""}</td>
+      <td>{r.type ?? ""}</td>
             </tr>
           ))}
         </tbody>

@@ -58,3 +58,31 @@ async def coach_motivate(dateISO: str = Query(default=None), goal: str = "mainta
         "score": score,
         "messages": messages
     }
+
+
+def appreciation_badge(score: int) -> str:
+    if score >= 90: return "🏅 Gold Day"
+    if score >= 80: return "🥈 Silver Day"
+    if score >= 70: return "🥉 Bronze Day"
+    return "✨ Keep Going"
+
+@router.get("/workouts")
+async def coach_workouts(minutes: int = Query(30, ge=10, le=120), level: str = "light"):
+    # Quick, template suggestions
+    ideas = []
+    if minutes <= 20:
+        ideas = [
+            "5-min warm-up walk + 10-min brisk walk + 5-min stretch",
+            "Bodyweight circuit (2x): squats 12, push-ups 8, lunges 10/side, plank 30s"
+        ]
+    elif minutes <= 40:
+        ideas = [
+            "10-min walk + 20-min jog intervals (2min jog/1min walk) + 10-min stretch",
+            "Full-body (3x): squats 12, rows 12, glute bridges 12, shoulder taps 20"
+        ]
+    else:
+        ideas = [
+            "40-min steady cardio (walk/jog/cycle) + 10-min mobility",
+            "Upper/lower split (3x12) + 10-min easy walk"
+        ]
+    return {"level": level, "minutes": minutes, "suggestions": ideas}

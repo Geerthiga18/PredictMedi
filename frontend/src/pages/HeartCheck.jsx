@@ -40,19 +40,25 @@ export default function HeartCheck({ token }) {
 
       {err && <p className="mt-3 text-red-600">{err}</p>}
 
-      {res && (
-        <div className="mt-4 rounded-lg bg-blue-50 p-4">
-          <p>Probability: <b>{res.probability.toFixed(3)}</b> (label {res.label})</p>
-          <h3 className="mt-3 font-semibold">Top factors</h3>
-          <ul className="list-disc pl-5">
-            {res.top_factors.map((t, i) => (
-              <li key={i}>
-                <code>{t.feature}</code>: contribution {t.contribution.toFixed(3)} (z={t.zvalue.toFixed(3)})
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+ {res && (
+  <div className="mt-4 rounded-lg bg-blue-50 p-4">
+    <p>Probability: <b>{(res.probability ?? res.prob)?.toFixed(3)}</b> (label {res.label})</p>
+
+    <h3 className="mt-3 font-semibold">Top factors</h3>
+    {Array.isArray(res.top_factors) && res.top_factors.length ? (
+      <ul className="list-disc pl-5">
+        {res.top_factors.map((t, i) => (
+          <li key={i}>
+            <code>{t.feature}</code>: contribution {t.contribution.toFixed(3)} (z={t.zvalue.toFixed(3)})
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p className="text-slate-600 text-sm">No explanation available.</p>
+    )}
+  </div>
+)}
+
     </div>
   );
 }
