@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { api } from "../lib/api";
 
-const label = "block text-sm text-slate-700";
-const input = "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500";
+const label = "block text-sm font-medium text-slate-700";
+const input =
+  "mt-1 w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2 text-slate-900 placeholder-slate-400 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500";
 
 export default function HeartCheck({ token }) {
   const [f, setF] = useState({
@@ -23,42 +24,70 @@ export default function HeartCheck({ token }) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl rounded-2xl bg-white p-6 shadow ring-1 ring-slate-100">
-      <h2 className="text-2xl font-semibold">Heart Disease Risk (baseline)</h2>
-      <form onSubmit={submit} className="mt-4 grid grid-cols-2 gap-4">
+    <div className="mx-auto max-w-2xl rounded-2xl bg-white/95 p-6 shadow-xl ring-1 ring-slate-200/70 backdrop-blur-sm">
+      <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
+        <span className="bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+          Heart Disease Risk (baseline)
+        </span>
+      </h2>
+
+      <form onSubmit={submit} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {Object.entries(f).map(([k,v]) => (
           <label key={k} className={label}>
             {k}
-            <input className={input} type="number" step="any" value={v}
-              onChange={e => set(k, e.target.value === "" ? "" : Number(e.target.value))}/>
+            <input
+              className={input}
+              type="number"
+              step="any"
+              value={v}
+              onChange={e => set(k, e.target.value === "" ? "" : Number(e.target.value))}
+            />
           </label>
         ))}
-        <div className="col-span-2">
-          <button className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Predict</button>
+        <div className="sm:col-span-2">
+          <button className="inline-flex items-center rounded-xl bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 px-4 py-2 font-medium text-white shadow-md transition hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            Predict
+          </button>
         </div>
       </form>
 
-      {err && <p className="mt-3 text-red-600">{err}</p>}
+      {err && (
+        <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 shadow-sm">
+          {err}
+        </p>
+      )}
 
- {res && (
-  <div className="mt-4 rounded-lg bg-blue-50 p-4">
-    <p>Probability: <b>{(res.probability ?? res.prob)?.toFixed(3)}</b> (label {res.label})</p>
+      {res && (
+        <div className="mt-4 rounded-xl bg-blue-50 p-4 ring-1 ring-inset ring-blue-200">
+          <p className="text-slate-800">
+            Probability:{" "}
+            <b>{((res.probability ?? res.prob) ?? 0).toFixed(3)}</b>{" "}
+            <span className="text-slate-600">(label {res.label})</span>
+          </p>
 
-    <h3 className="mt-3 font-semibold">Top factors</h3>
-    {Array.isArray(res.top_factors) && res.top_factors.length ? (
-      <ul className="list-disc pl-5">
-        {res.top_factors.map((t, i) => (
-          <li key={i}>
-            <code>{t.feature}</code>: contribution {t.contribution.toFixed(3)} (z={t.zvalue.toFixed(3)})
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <p className="text-slate-600 text-sm">No explanation available.</p>
-    )}
-  </div>
-)}
-
+          <h3 className="mt-3 text-base font-semibold text-slate-900">Top factors</h3>
+          {Array.isArray(res.top_factors) && res.top_factors.length ? (
+            <ul className="mt-1 space-y-1">
+              {res.top_factors.map((t, i) => (
+                <li key={i} className="text-sm text-slate-800">
+                  <code className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700 ring-1 ring-slate-200">
+                    {t.feature}
+                  </code>
+                  <span className="ml-2">
+                    contribution{" "}
+                    <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">
+                      {t.contribution.toFixed(3)}
+                    </span>
+                    {" "} (z={t.zvalue.toFixed(3)})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-600">No explanation available.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

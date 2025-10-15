@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import FoodSearch from "../components/FoodSearch";
 import { api } from "../lib/api";
 
-const card = "rounded-2xl bg-white p-5 shadow ring-1 ring-slate-100";
-const input = "w-24 rounded-lg border border-slate-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500";
+const card = "rounded-2xl bg-white/95 p-5 shadow-xl ring-1 ring-slate-200/70 backdrop-blur-sm";
+const input = "w-24 rounded-lg border border-slate-300/80 bg-slate-50 px-2 py-1 text-slate-900 placeholder-slate-400 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500";
 
 export default function MealsLog({ token }) {
   const [today, setToday] = useState(() => new Date().toISOString().slice(0,10));
@@ -18,7 +18,6 @@ export default function MealsLog({ token }) {
   async function load() {
     try {
       const r = await api(`/meals/log?date=${today}`, { token });
-      // adapt based on your backend response shape
       setItems(r.items || []);
     } catch (e) { /* ignore for now */ }
   }
@@ -45,7 +44,6 @@ export default function MealsLog({ token }) {
       fdcId: picked.fdcId
     };
     setItems(prev => [...prev, row]);
-    // reset picker
     setPicked(null); setGrams("");
   }
 
@@ -79,31 +77,64 @@ export default function MealsLog({ token }) {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className={card}>
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold">Meals for</h2>
-          <input type="date" className="rounded-lg border border-slate-300 px-2 py-1"
-                 value={today} onChange={e=>setToday(e.target.value)} />
-          <div className="ml-auto">{msg && <span className="text-sm text-green-700">{msg}</span>}</div>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-xl font-semibold tracking-tight text-slate-900">
+            <span className="bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+              Meals for
+            </span>
+          </h2>
+          <input
+            type="date"
+            className="rounded-lg border border-slate-300/80 bg-slate-50 px-2 py-1 text-slate-900 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
+            value={today}
+            onChange={e=>setToday(e.target.value)}
+          />
+          <div className="ml-auto">
+            {msg && (
+              <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm text-emerald-700 shadow-sm">
+                {msg}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Picker */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <FoodSearch onSelect={(item)=>setPicked(item)} />
         <div className={card}>
-          <h3 className="font-semibold">Add selected</h3>
+          <h3 className="text-base font-semibold text-slate-900">Search food</h3>
+          <p className="mt-1 text-sm text-slate-500">Find items and pick a serving.</p>
+          <div className="mt-3">
+            <FoodSearch onSelect={(item)=>setPicked(item)} />
+          </div>
+        </div>
+
+        <div className={card}>
+          <h3 className="text-base font-semibold text-slate-900">Add selected</h3>
           {!picked && <p className="mt-2 text-sm text-slate-500">Choose a food on the left.</p>}
           {picked && (
             <>
               <p className="mt-2 text-slate-800">{picked.description}</p>
-              <p className="text-sm text-slate-500">Default serving: {picked.serving?.amount} {picked.serving?.unit}</p>
+              <p className="text-sm text-slate-500">
+                Default serving: {picked.serving?.amount} {picked.serving?.unit}
+              </p>
               <div className="mt-3 flex items-end gap-2">
                 <label className="text-sm text-slate-700">
                   Grams
-                  <input className={input} type="number" min="0" step="1" value={grams}
-                         onChange={e=>setGrams(e.target.value)} placeholder={picked.serving?.unit?.toLowerCase()==="g" ? picked.serving.amount : "100"} />
+                  <input
+                    className={input}
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={grams}
+                    onChange={e=>setGrams(e.target.value)}
+                    placeholder={picked.serving?.unit?.toLowerCase()==="g" ? picked.serving.amount : "100"}
+                  />
                 </label>
-                <button onClick={addPicked} className="rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700">
+                <button
+                  onClick={addPicked}
+                  className="rounded-lg bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 px-3 py-2 text-white shadow-md transition hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
                   Add
                 </button>
               </div>
@@ -116,42 +147,53 @@ export default function MealsLog({ token }) {
       {/* Day list */}
       <div className={card}>
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Logged items</h3>
-          <button onClick={saveDay} className="rounded-lg bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-700">
+          <h3 className="font-semibold text-slate-900">Logged items</h3>
+          <button
+            onClick={saveDay}
+            className="rounded-lg bg-emerald-600 px-3 py-2 text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          >
             Save Day
           </button>
         </div>
 
         {!items.length && <p className="mt-3 text-sm text-slate-500">No items yet.</p>}
+
         {!!items.length && (
-          <table className="mt-3 w-full text-left text-sm">
-            <thead className="text-slate-500">
-              <tr>
-                <th className="py-1">Food</th>
-                <th>g</th>
-                <th>kcal</th>
-                <th>Carb</th>
-                <th>Protein</th>
-                <th>Fat</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((x,i)=>(
-                <tr key={i} className="border-t">
-                  <td className="py-1 pr-2">{x.desc}</td>
-                  <td>{x.grams}</td>
-                  <td>{fmt(x.kcal)}</td>
-                  <td>{fmt(x.carb_g)}g</td>
-                  <td>{fmt(x.protein_g)}g</td>
-                  <td>{fmt(x.fat_g)}g</td>
-                  <td>
-                    <button onClick={()=>remove(i)} className="text-red-600 hover:underline">remove</button>
-                  </td>
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-2 font-semibold text-slate-700">Food</th>
+                  <th className="px-4 py-2 font-semibold text-slate-700">g</th>
+                  <th className="px-4 py-2 font-semibold text-slate-700">kcal</th>
+                  <th className="px-4 py-2 font-semibold text-slate-700">Carb</th>
+                  <th className="px-4 py-2 font-semibold text-slate-700">Protein</th>
+                  <th className="px-4 py-2 font-semibold text-slate-700">Fat</th>
+                  <th className="px-4 py-2"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {items.map((x,i)=>(
+                  <tr key={i} className="hover:bg-slate-50/60">
+                    <td className="px-4 py-2 text-slate-800">{x.desc}</td>
+                    <td className="px-4 py-2 text-slate-800">{x.grams}</td>
+                    <td className="px-4 py-2 text-slate-800">{fmt(x.kcal)}</td>
+                    <td className="px-4 py-2 text-slate-800">{fmt(x.carb_g)}g</td>
+                    <td className="px-4 py-2 text-slate-800">{fmt(x.protein_g)}g</td>
+                    <td className="px-4 py-2 text-slate-800">{fmt(x.fat_g)}g</td>
+                    <td className="px-4 py-2">
+                      <button
+                        onClick={()=>remove(i)}
+                        className="rounded-md px-2 py-1 text-sm font-medium text-red-700 hover:bg-red-50 hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-400/40"
+                      >
+                        remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
@@ -160,7 +202,7 @@ export default function MealsLog({ token }) {
 
 function MacroPreview({ macros }) {
   if (!macros) return null;
-  const box = "rounded-lg bg-slate-50 px-3 py-2";
+  const box = "rounded-lg bg-slate-50 px-3 py-2 shadow-sm ring-1 ring-slate-100";
   return (
     <div className="mt-3 grid grid-cols-3 gap-2 text-sm text-slate-700">
       <div className={box}>kcal <b>{fmt(macros.kcal)}</b></div>
