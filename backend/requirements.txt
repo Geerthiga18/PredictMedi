@@ -10,3 +10,4 @@ PyJWT
 email-validator
 httpx
 dnspython
+email-validator

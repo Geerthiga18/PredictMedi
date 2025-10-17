@@ -1,0 +1,50 @@
+{
+  "features": [
+    "Pregnancies",
+    "Glucose",
+    "BloodPressure",
+    "SkinThickness",
+    "Insulin",
+    "BMI",
+    "DiabetesPedigreeFunction",
+    "Age"
+  ],
+  "target": "Outcome",
+  "zero_as_missing": [
+    "Glucose",
+    "BloodPressure",
+    "SkinThickness",
+    "Insulin",
+    "BMI"
+  ],
+  "threshold": 0.5,
+  "seed": 42,
+  "dataset": "Pima Indians (UCI/Kaggle)",
+  "metrics": {
+    "val": {
+      "split": "val",
+      "accuracy": 0.7217391304347827,
+      "precision": 0.6176470588235294,
+      "recall": 0.525,
+      "f1": 0.5675675675675675,
+      "roc_auc": 0.804,
+      "tn": 62,
+      "fp": 13,
+      "fn": 19,
+      "tp": 21
+    },
+    "test": {
+      "split": "test",
+      "accuracy": 0.75,
+      "precision": 0.75,
+      "recall": 0.43902439024390244,
+      "f1": 0.5538461538461539,
+      "roc_auc": 0.8648780487804879,
+      "tn": 69,
+      "fp": 6,
+      "fn": 23,
+      "tp": 18
+    }
+  },
+  "mode": "labs"
+}

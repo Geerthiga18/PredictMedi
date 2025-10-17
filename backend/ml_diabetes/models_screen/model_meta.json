@@ -1,0 +1,48 @@
+{
+  "features": [
+    "HighBP",
+    "HighChol",
+    "CholCheck",
+    "BMI",
+    "Smoker",
+    "Stroke",
+    "HeartDiseaseorAttack",
+    "PhysActivity",
+    "Fruits",
+    "Veggies",
+    "HvyAlcoholConsump",
+    "AnyHealthcare",
+    "NoDocbcCost",
+    "GenHlth",
+    "MentHlth",
+    "PhysHlth",
+    "DiffWalk",
+    "Sex",
+    "Age",
+    "Education",
+    "Income"
+  ],
+  "target": "Diabetes_binary",
+  "threshold": 0.5,
+  "seed": 42,
+  "dataset": "BRFSS2015 binary (Kaggle)",
+  "metrics": {
+    "val": {
+      "split": "val",
+      "accuracy": 0.8633974561126879,
+      "precision": 0.5534979423868313,
+      "recall": 0.1014711429649189,
+      "f1": 0.17150143449155245,
+      "roc_auc": 0.8214643127611357
+    },
+    "test": {
+      "split": "test",
+      "accuracy": 0.8632397771470619,
+      "precision": 0.5517970401691332,
+      "recall": 0.0984534138061109,
+      "f1": 0.16709346991037133,
+      "roc_auc": 0.8215412331800473
+    }
+  },
+  "mode": "screen"
+}

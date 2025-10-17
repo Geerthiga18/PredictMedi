@@ -1,58 +1,41 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi import FastAPI
+import joblib, json
 from pathlib import Path
-import joblib
 import numpy as np
-import pandas as pd
-import json
 
-BASE_DIR = Path(__file__).parent
-MODELS_DIR = BASE_DIR / "models"
-MODEL_PATH = MODELS_DIR / "diabetes_clf.joblib"
-META_PATH  = MODELS_DIR / "model_meta.json"
+app = FastAPI(title="Diabetes Service (Two-Stage)")
 
-app = FastAPI(title="Diabetes ML Service", version="0.1.0")
+def load_model_dir(dirpath: str):
+    p = Path(__file__).parent / dirpath
+    model = joblib.load(p / "diabetes_clf.joblib")
+    meta  = json.loads((p / "model_meta.json").read_text())
+    return model, meta
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173","http://127.0.0.1:5173","*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-class PredictIn(BaseModel):
-    # Keep compatibility with your frontend/back: it posts {"features": {...}}
-    features: dict = Field(default_factory=dict)
-
-@app.on_event("startup")
-def _load():
-    if not MODEL_PATH.exists():
-        raise RuntimeError("Model file not found. Train it first (train_diabetes.py).")
-    app.state.model = joblib.load(MODEL_PATH)
-    app.state.meta = json.loads(META_PATH.read_text())
-    print("[ml] model loaded with features:", app.state.meta["features"])
+model_screen, meta_screen = load_model_dir("models_screen")
+model_labs,   meta_labs   = load_model_dir("models_labs")
 
 @app.get("/health")
 def health():
-    return {"ok": True, "model": MODEL_PATH.name}
-
-@app.post("/predict")
-def predict(payload: PredictIn):
-    features_order = app.state.meta["features"]
-    f = payload.features or {}
-    # Build a single-row dataframe in the exact feature order
-    row = {k: f.get(k, None) for k in features_order}
-    X = pd.DataFrame([row], columns=features_order)
-
-    try:
-        proba = float(app.state.model.predict_proba(X)[0, 1])
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Inference error: {e}")
-
     return {
-        "probability": proba,
-        "label": int(proba >= 0.5),
-        "used_features": row
+        "ok": True,
+        "screen_features": meta_screen["features"],
+        "labs_features": meta_labs["features"],
     }
+
+@app.post("/predict_screen")
+def predict_screen(payload: dict):
+    feats = payload.get("features", {})
+    order = meta_screen["features"]
+    x = np.array([[feats.get(k, None) for k in order]], dtype=float)
+    proba = float(model_screen.predict_proba(x)[0, 1])
+    thr = meta_screen.get("threshold", 0.5)
+    return {"probability": proba, "label": int(proba >= thr), "mode": "screen"}
+
+@app.post("/predict_labs")
+def predict_labs(payload: dict):
+    feats = payload.get("features", {})
+    order = meta_labs["features"]
+    x = np.array([[feats.get(k, None) for k in order]], dtype=float)
+    proba = float(model_labs.predict_proba(x)[0, 1])
+    thr = meta_labs.get("threshold", 0.5)
+    return {"probability": proba, "label": int(proba >= thr), "mode": "labs"}

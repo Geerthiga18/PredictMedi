@@ -57,10 +57,17 @@ def health():
     return {"ok": True}
 
 # --- PROXY to ML service ---
-@app.post("/ml/diabetes/predict")
-async def diabetes_predict(payload: PredictPayload):
+@app.post("/ml/diabetes/screen")
+async def diabetes_screen(payload: PredictPayload):
     async with httpx.AsyncClient(timeout=5.0) as client:
-        r = await client.post(f"{DIABETES_API_URL}/predict", json=payload.dict())
+        r = await client.post(f"{DIABETES_API_URL}/predict_screen", json=payload.model_dump())
+        r.raise_for_status()
+        return r.json()
+
+@app.post("/ml/diabetes/labs")
+async def diabetes_labs(payload: PredictPayload):
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        r = await client.post(f"{DIABETES_API_URL}/predict_labs", json=payload.model_dump())
         r.raise_for_status()
         return r.json()
 
@@ -72,7 +79,7 @@ async def heart_predict(payload: PredictPayload):        # <-- make it async + p
         r.raise_for_status()
         return r.json()
 
-# 4) Import routers AFTER app is defined, then include them
+
 
 
 
