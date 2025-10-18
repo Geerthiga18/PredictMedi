@@ -4,9 +4,48 @@ from typing import Dict, Any, List
 import joblib, json
 from pathlib import Path
 import numpy as np
-import pandas as pd   # <-- add this
+import pandas as pd   
 
 app = FastAPI(title="Diabetes Service (Two-Stage)")
+
+from typing import Tuple, Dict
+
+def risk_bucket(p: float, context: str) -> Dict[str, object]:
+    """
+    Map probability -> user-facing label + gentle guidance.
+    context: "screen" or "labs" (lets us tailor the advice)
+    """
+    # You can tune these thresholds later
+    bands = [
+        (0.10, "Very low chance"),
+        (0.25, "Low chance"),
+        (0.50, "Moderate chance"),
+        (0.75, "High chance"),
+        (1.01, "Very high chance"),
+    ]
+    lower = 0.0
+    for upper, label in bands:
+        if p < upper:
+            # lightweight, non-diagnostic coaching
+            if context == "screen":
+                tip = (
+                    "This quick screen is not a diagnosis. "
+                    "If you have concerns, consider lab testing. "
+                    "Healthy habits (regular activity, balanced diet, enough sleep) help reduce risk."
+                )
+            else:  # labs
+                tip = (
+                    "Lab-based estimate only. Talk with a clinician if you’re worried. "
+                    "They may confirm with additional tests and review your history."
+                )
+            return {
+                "label": label,
+                "range": [round(lower, 2), round(min(upper, 1.0), 2)],
+                "advice": tip,
+            }
+        lower = upper
+    # Fallback (shouldn’t hit)
+    return {"label": "Unknown", "range": [0, 1], "advice": ""}
 
 def load_model_dir(dirpath: str):
     p = Path(__file__).parent / dirpath
@@ -45,14 +84,24 @@ def _vectorize_df(feats: Dict[str, Any], order: List[str]) -> "pd.DataFrame":
 
 @app.post("/predict_screen")
 def predict_screen(payload: FeaturesIn):
-    X = _vectorize_df(payload.features, meta_screen["features"])  # <-- DataFrame
+    X = _vectorize_df(payload.features, meta_screen["features"])
     proba = float(model_screen.predict_proba(X)[0, 1])
     thr = meta_screen.get("threshold", 0.5)
-    return {"probability": proba, "label": int(proba >= thr), "mode": "screen"}
+    return {
+        "probability": proba,
+        "label": int(proba >= thr),
+        "mode": "screen",
+        "risk": risk_bucket(proba, "screen"),
+    }
 
 @app.post("/predict_labs")
 def predict_labs(payload: FeaturesIn):
-    X = _vectorize_df(payload.features, meta_labs["features"])    # <-- DataFrame
+    X = _vectorize_df(payload.features, meta_labs["features"])
     proba = float(model_labs.predict_proba(X)[0, 1])
     thr = meta_labs.get("threshold", 0.5)
-    return {"probability": proba, "label": int(proba >= thr), "mode": "labs"}
+    return {
+        "probability": proba,
+        "label": int(proba >= thr),
+        "mode": "labs",
+        "risk": risk_bucket(proba, "labs"),
+    }

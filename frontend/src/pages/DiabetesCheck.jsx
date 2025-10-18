@@ -9,7 +9,7 @@ const btnPrimary =
 const card =
   "mx-auto max-w-2xl rounded-2xl bg-white/95 p-6 shadow-xl ring-1 ring-slate-200/70 backdrop-blur-sm";
 
-  // Coded option lists for BRFSS fields
+// Coded option lists for BRFSS fields
 const YES_NO = [
   { label: "No", value: 0 },
   { label: "Yes", value: 1 },
@@ -40,6 +40,22 @@ const GEN_HEALTH = [
   [1, "Excellent"], [2, "Very good"], [3, "Good"], [4, "Fair"], [5, "Poor"],
 ];
 
+// --- New: small badge for risk label ---
+function RiskBadge({ label }) {
+  const palette = {
+    "Very low chance": "bg-emerald-100 text-emerald-800",
+    "Low chance": "bg-lime-100 text-lime-800",
+    "Moderate chance": "bg-amber-100 text-amber-800",
+    "High chance": "bg-orange-100 text-orange-800",
+    "Very high chance": "bg-red-100 text-red-800",
+  };
+  const cls = palette[label] || "bg-slate-100 text-slate-800";
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
+    </span>
+  );
+}
 
 export default function DiabetesCheck({ token }) {
   // ---- STEP 1: Questionnaire (BRFSS) ----
@@ -78,7 +94,7 @@ const [q, setQ] = useState({
     DiabetesPedigreeFunction: 0.5,
     Age: 33,
   });
-  const [screenRes, setScreenRes] = useState(null);
+const [screenRes, setScreenRes] = useState(null);
   const [labRes, setLabRes] = useState(null);
   const [err, setErr] = useState("");
   const [loading1, setLoading1] = useState(false);
@@ -86,10 +102,10 @@ const [q, setQ] = useState({
   const [showLabs, setShowLabs] = useState(false);
 
   function setQv(k, v) {
-    setQ(prev => ({ ...prev, [k]: v }));
+    setQ((prev) => ({ ...prev, [k]: v }));
   }
   function setLv(k, v) {
-    setLabs(prev => ({ ...prev, [k]: v }));
+    setLabs((prev) => ({ ...prev, [k]: v }));
   }
 
   async function submitScreen(e) {
@@ -103,8 +119,12 @@ const [q, setQ] = useState({
         body: { features: q },
       });
       setScreenRes(out);
-      // Gently suggest labs if moderate/high probability
-      if (out?.probability >= 0.25) setShowLabs(true);
+      // Suggest labs if moderate+ probability OR server says moderate+ risk
+      const prob = out?.probability ?? 0;
+      const label = out?.risk?.label || "";
+      if (prob >= 0.25 || ["Moderate chance","High chance","Very high chance"].includes(label)) {
+        setShowLabs(true);
+      }
     } catch (e) {
       setErr(e.message || "Screen prediction failed");
     } finally {
@@ -130,7 +150,7 @@ const [q, setQ] = useState({
     }
   }
    return (
-    <div className={card}>
+   <div className={card}>
       <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
         <span className="bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
           Diabetes Risk
@@ -138,25 +158,26 @@ const [q, setQ] = useState({
       </h2>
 
       {/* STEP 1: Questionnaire form */}
-      <div className="mt-4 rounded-xl ring-1 ring-slate-200 p-4">
+     <div className="mt-4 rounded-xl ring-1 ring-slate-200 p-4">
         <div className="mb-3 text-slate-600 text-sm">
           Quick screen (no lab tests). Use simple yes/no or small numbers from daily life.
         </div>
-<form onSubmit={submitScreen} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-  {/* High blood pressure? */}
-  <fieldset className={field} title="Have you ever been told by a doctor that you have high blood pressure?">
-    High blood pressure diagnosed?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"HighBP"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="HighBP" checked={q.HighBP===o.value}
-                 onChange={() => setQ(prev=>({...prev, HighBP:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+ <form onSubmit={submitScreen} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* All your fields unchanged... */}
+          {/* High blood pressure? */}
+          <fieldset className={field} title="Have you ever been told by a doctor that you have high blood pressure?">
+            High blood pressure diagnosed?
+            <div className="mt-1 flex gap-3">
+              {YES_NO.map(o => (
+                <label key={"HighBP"+o.value} className="inline-flex items-center gap-1">
+                  <input type="radio" name="HighBP" checked={q.HighBP===o.value}
+                          onChange={() => setQv("HighBP", o.value)} />
+                  <span className="text-slate-700">{o.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
   {/* High cholesterol? */}
   <fieldset className={field} title="Ever told you have high cholesterol?">
@@ -393,46 +414,52 @@ const [q, setQ] = useState({
     </select>
   </label>
 
-  <div className="sm:col-span-2">
-    <button className={btnPrimary} disabled={loading1}>
-      {loading1 ? "Predicting..." : "Predict (Questionnaire)"}
-    </button>
-  </div>
-</form>
+ <div className="sm:col-span-2">
+            <button className={btnPrimary} disabled={loading1}>
+              {loading1 ? "Predicting..." : "Predict (Questionnaire)"}
+            </button>
+          </div>
+        </form>
 
 
-        {screenRes && (
+     {screenRes && (
           <div className="mt-4 rounded-xl bg-blue-50 p-4 ring-1 ring-inset ring-blue-200">
-            <p className="text-slate-800">
-              Probability (screen): <b>{screenRes.probability.toFixed(3)}</b>
-            </p>
-            <p className="text-slate-800">
-              Label: <b>{screenRes.label}</b>
-            </p>
-            <div className="mt-3">
-              {!showLabs ? (
+            <div className="flex items-center gap-2 text-slate-800">
+              <span>Probability (screen):</span>
+              <b>{Number(screenRes.probability ?? 0).toFixed(3)}</b>
+              {screenRes?.risk?.label && <RiskBadge label={screenRes.risk.label} />}
+            </div>
+
+            {screenRes?.risk?.advice && (
+              <p className="mt-2 text-sm text-slate-600">{screenRes.risk.advice}</p>
+            )}
+
+            {!showLabs ? (
+              <div className="mt-3">
                 <button
                   onClick={() => setShowLabs(true)}
                   className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-blue-700 hover:bg-blue-50"
                 >
                   Do the optional lab-based check
                 </button>
-              ) : (
-                <p className="text-sm text-slate-600">
-                  You can run the optional lab-based check below (Glucose/Insulin etc.).
-                </p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-slate-600">
+                You can run the optional lab-based check below (Glucose/Insulin etc.).
+              </p>
+            )}
           </div>
         )}
       </div>
 
-      {/* STEP 2: Labs (optional) */}
+
+ {/* STEP 2: Labs (optional) */}
       {showLabs && (
         <div className="mt-6 rounded-xl ring-1 ring-slate-200 p-4">
           <div className="mb-3 text-slate-600 text-sm">
             Optional: use lab numbers (if you have them) for a more specific estimate.
           </div>
+
           <form onSubmit={submitLabs} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {Object.entries(labs).map(([k, v]) => (
               <label key={k} className={field}>
@@ -442,9 +469,7 @@ const [q, setQ] = useState({
                   type="number"
                   step="any"
                   value={v}
-                  onChange={(e) =>
-                    setLv(k, e.target.value === "" ? "" : Number(e.target.value))
-                  }
+                  onChange={(e) => setLv(k, e.target.value === "" ? "" : Number(e.target.value))}
                 />
               </label>
             ))}
@@ -455,14 +480,17 @@ const [q, setQ] = useState({
             </div>
           </form>
 
+          {/* --- Updated: Friendly result block for labs --- */}
           {labRes && (
             <div className="mt-4 rounded-xl bg-indigo-50 p-4 ring-1 ring-inset ring-indigo-200">
-              <p className="text-slate-800">
-                Probability (labs): <b>{labRes.probability.toFixed(3)}</b>
-              </p>
-              <p className="text-slate-800">
-                Label: <b>{labRes.label}</b>
-              </p>
+              <div className="flex items-center gap-2 text-slate-800">
+                <span>Probability (labs):</span>
+                <b>{Number(labRes.probability ?? 0).toFixed(3)}</b>
+                {labRes?.risk?.label && <RiskBadge label={labRes.risk.label} />}
+              </div>
+              {labRes?.risk?.advice && (
+                <p className="mt-2 text-sm text-slate-600">{labRes.risk.advice}</p>
+              )}
             </div>
           )}
         </div>

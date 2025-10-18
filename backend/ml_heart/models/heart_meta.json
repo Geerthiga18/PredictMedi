@@ -14,19 +14,25 @@
     "ca",
     "thal"
   ],
+  "numeric_features": [
+    "age",
+    "trestbps",
+    "chol",
+    "thalach",
+    "oldpeak"
+  ],
+  "categorical_features": [
+    "sex",
+    "cp",
+    "fbs",
+    "restecg",
+    "exang",
+    "slope",
+    "thal",
+    "ca"
+  ],
   "target": "target",
-  "created_at": "2025-09-12 17:23:46",
-  "seed": 42,
-  "calibration": "isotonic",
-  "artifacts": {
-    "preproc": "heart_preproc.joblib",
-    "base_lr": "heart_base_lr.joblib",
-    "calibrated": "heart_calibrated.joblib",
-    "background": "background.npy"
-  },
-  "metrics": {
-    "accuracy": 0.8032786885245902,
-    "roc_auc": 0.8685064935064934,
-    "f1": 0.8333333333333334
-  }
+  "notes": "Cleveland-style features with string\u2192numeric mapping; LogisticRegression + Platt calibration",
+  "auc_test": 0.9088952654232425,
+  "threshold": 0.5
 }

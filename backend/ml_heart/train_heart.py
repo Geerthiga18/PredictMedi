@@ -1,119 +1,184 @@
-import json, os, time
+# ml_heart/train_heart.py
+import argparse
+import json
 from pathlib import Path
+
+import joblib
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, classification_report
-import joblib
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-SEED = 42
-DATA_PATH = Path(__file__).parent / "data" / "heart.csv"
-MODELS_DIR = Path(__file__).parent / "models"
-MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-FEATURES = [
+
+BASE = Path(__file__).parent
+MODELS = BASE / "models"
+MODELS.mkdir(exist_ok=True)
+
+PREPROC_PATH = MODELS / "heart_preproc.joblib"
+BASE_LR_PATH = MODELS / "heart_base_lr.joblib"
+CALIB_PATH   = MODELS / "heart_calibrated.joblib"
+BG_PATH      = MODELS / "background.npy"
+META_PATH    = MODELS / "heart_meta.json"
+
+# Final, standardized columns we will train on (UCI-style)
+FINAL_COLS = [
     "age","sex","cp","trestbps","chol","fbs","restecg","thalach",
-    "exang","oldpeak","slope","ca","thal"
-]
-TARGET = "target"
-
-# Optional public mirror; ok to remove if you prefer manual placement
-DATA_URLS = [
-    "https://raw.githubusercontent.com/plotly/datasets/master/heart.csv",
+    "exang","oldpeak","slope","ca","thal","target"
 ]
 
-def ensure_data(path: Path) -> pd.DataFrame:
-    if path.exists():
-        return pd.read_csv(path)
-    for url in DATA_URLS:
-        try:
-            print(f"[train] {path} not found, trying download: {url}")
-            df = pd.read_csv(url)
-            df.to_csv(path, index=False)
-            return df
-        except Exception as e:
-            print("[train] download failed:", e)
-    raise FileNotFoundError(f"Place a heart.csv with columns {FEATURES+[TARGET]} at {path}")
+# Which of those are treated numeric vs categorical in our pipeline
+CAT_COLS = ["sex","cp","fbs","restecg","exang","slope","thal","ca"]
+NUM_COLS = ["age","trestbps","chol","thalach","oldpeak"]
 
-def main():
-    df = ensure_data(DATA_PATH)
 
-    missing = set([*FEATURES, TARGET]) - set(df.columns)
+def load_csv(path: Path) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    df = df.replace("?", np.nan)
+
+    # Normalize column names from your Kaggle-style file
+    # thalach misspelled as 'thalch'
+    if "thalch" in df.columns and "thalach" not in df.columns:
+        df = df.rename(columns={"thalch": "thalach"})
+    # target column named 'num'
+    if "num" in df.columns and "target" not in df.columns:
+        df = df.rename(columns={"num": "target"})
+    # drop columns we don't model
+    for c in ["id", "dataset"]:
+        if c in df.columns:
+            df = df.drop(columns=[c])
+
+    # Ensure required columns are present
+    EXPECTED_COLS = [
+        "age","sex","cp","trestbps","chol","fbs","restecg","thalach",
+        "exang","oldpeak","slope","ca","thal","target"
+    ]
+    missing = [c for c in EXPECTED_COLS if c not in df.columns]
     if missing:
         raise ValueError(f"CSV missing columns: {missing}")
 
-    X = df[FEATURES].copy()
-    y = df[TARGET].astype(int)
+    # Cast numerics (leave categoricals as-is; OHE will handle strings/bools)
+    NUM_COLS = ["age","trestbps","chol","thalach","oldpeak","ca"]
+    for c in NUM_COLS:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=SEED, stratify=y
-    )
+    # Convert booleans like TRUE/FALSE to string labels for OHE (optional)
+    for c in ["fbs", "exang"]:
+        if c in df.columns:
+            df[c] = df[c].map(
+                lambda x: str(x).strip().lower() if pd.notna(x) else x
+            )
 
-    # Preprocess numeric-coded features
-    preproc = Pipeline([
-        ("impute", SimpleImputer(strategy="median")),
-        ("scale", StandardScaler()),
+    # Make target binary: >0 => 1 (has disease), 0 => 0 (no disease)
+    df["target"] = (pd.to_numeric(df["target"], errors="coerce") > 0).astype(int)
+
+    return df
+
+def build_preprocessor():
+    num_pipe = Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
     ])
 
-    Xtr = preproc.fit_transform(X_train)
-    Xte = preproc.transform(X_test)
+    # Handle scikit-learn versions:
+    try:
+        # sklearn >= 1.2
+        ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+    except TypeError:
+        # sklearn < 1.2
+        ohe = OneHotEncoder(handle_unknown="ignore", sparse=False)
 
-    # Base linear model (balanced) for explanations
-    base_lr = LogisticRegression(class_weight="balanced", max_iter=2000, solver="liblinear")
-    base_lr.fit(Xtr, y_train)
+    cat_pipe = Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("ohe", ohe),
+    ])
 
-    # Calibrated probabilities (isotonic)
-    # We calibrate a fresh clone on the preprocessed features
-    calib = CalibratedClassifierCV(
-        estimator=LogisticRegression(class_weight="balanced", max_iter=2000, solver="liblinear"),
-    method="isotonic",
-    cv=5,
+    preproc = ColumnTransformer(
+        transformers=[
+            ("num", num_pipe, NUM_COLS),
+            ("cat", cat_pipe, CAT_COLS),
+        ],
+        remainder="drop",
+        verbose_feature_names_out=False,
     )
-    calib.fit(Xtr, y_train)
+    return preproc
 
-    # Evaluate calibrated model
-    proba = calib.predict_proba(Xte)[:, 1]
-    pred  = (proba >= 0.5).astype(int)
-    metrics = {
-        "accuracy": float(accuracy_score(y_test, pred)),
-        "roc_auc": float(roc_auc_score(y_test, proba)),
-        "f1": float(f1_score(y_test, pred)),
-        "report": classification_report(y_test, pred, output_dict=True),
-        "n_train": int(len(X_train)),
-        "n_test": int(len(X_test)),
-    }
-    print(json.dumps(metrics, indent=2))
+    
 
-    # Save artifacts
-    joblib.dump(preproc, MODELS_DIR / "heart_preproc.joblib")
-    joblib.dump(base_lr, MODELS_DIR / "heart_base_lr.joblib")
-    joblib.dump(calib,   MODELS_DIR / "heart_calibrated.joblib")
+def main(csv_path: str, test_size: float, random_state: int):
+    csv_path = Path(csv_path)
+    df = load_csv(csv_path)
 
-    # Keep a tiny background sample for SHAP (100 rows of transformed X)
-    bg = Xtr[:100].astype(np.float32)
-    np.save(MODELS_DIR / "background.npy", bg)
+    X = df.drop(columns=["target"])
+    y = df["target"].astype(int)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=random_state, stratify=y
+    )
+
+    preproc = build_preprocessor()
+    Xt_train = preproc.fit_transform(X_train)
+    Xt_test  = preproc.transform(X_test)
+
+    base_lr = LogisticRegression(
+        max_iter=1000,
+        class_weight="balanced",
+        solver="lbfgs",
+    )
+    base_lr.fit(Xt_train, y_train)
+
+      # Calibrated model (version-proof: estimator vs base_estimator)
+    try:
+        # sklearn >= 1.4-ish
+        calib = CalibratedClassifierCV(
+            estimator=base_lr,  # new name
+            method="sigmoid",
+            cv=5,
+        )
+    except TypeError:
+        # sklearn <= 1.3
+        calib = CalibratedClassifierCV(
+           estimator=base_lr,   
+            method="sigmoid",
+            cv=5,
+        )
+    calib.fit(Xt_train, y_train)
+
+    p_test = calib.predict_proba(Xt_test)[:, 1]
+    auc = roc_auc_score(y_test, p_test)
+    print(f"[heart-train] ROC AUC (test): {auc:.3f} | n_train={len(X_train)} n_test={len(X_test)}")
+
+    n_bg = min(200, Xt_train.shape[0])
+    bg_idx = np.random.RandomState(random_state).choice(Xt_train.shape[0], n_bg, replace=False)
+    bg = Xt_train[bg_idx]
+    np.save(BG_PATH, bg)
+
+    joblib.dump(preproc, PREPROC_PATH)
+    joblib.dump(base_lr, BASE_LR_PATH)
+    joblib.dump(calib, CALIB_PATH)
 
     meta = {
-        "features": FEATURES,
-        "target": TARGET,
-        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "seed": SEED,
-        "calibration": "isotonic",
-        "artifacts": {
-            "preproc": "heart_preproc.joblib",
-            "base_lr": "heart_base_lr.joblib",
-            "calibrated": "heart_calibrated.joblib",
-            "background": "background.npy"
-        },
-        "metrics": {k: metrics[k] for k in ("accuracy","roc_auc","f1")}
+        "features": list(X.columns),
+        "numeric_features": NUM_COLS,
+        "categorical_features": CAT_COLS,
+        "target": "target",
+        "notes": "Cleveland-style features with string→numeric mapping; LogisticRegression + Platt calibration",
+        "auc_test": float(auc),
+        "threshold": 0.5
     }
-    (MODELS_DIR / "heart_meta.json").write_text(json.dumps(meta, indent=2))
-    print(f"Saved artifacts in {MODELS_DIR}")
+    META_PATH.write_text(json.dumps(meta, indent=2))
+    print(f"[heart-train] saved artifacts to {MODELS.resolve()}")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--csv", required=True, help="Path to your Cleveland-style CSV.")
+    parser.add_argument("--test_size", type=float, default=0.2)
+    parser.add_argument("--random_state", type=int, default=42)
+    args = parser.parse_args()
+    main(args.csv, args.test_size, args.random_state)
