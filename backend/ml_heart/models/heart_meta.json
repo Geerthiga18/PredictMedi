@@ -33,6 +33,6 @@
   ],
   "target": "target",
   "notes": "Cleveland-style features with string\u2192numeric mapping; LogisticRegression + Platt calibration",
-  "auc_test": 0.9088952654232425,
+  "auc_test": 0.9087757054041129,
   "threshold": 0.5
 }

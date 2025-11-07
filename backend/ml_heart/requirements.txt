@@ -1,7 +1,7 @@
-echo fastapi
-echo uvicorn
-echo scikit-learn
-echo pandas
-echo numpy
-echo joblib
-echo shap
+fastapi
+uvicorn[standard]
+numpy
+pandas
+scikit-learn==1.3.2
+joblib
+shap

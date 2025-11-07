@@ -3,12 +3,14 @@ import { api } from "../lib/api";
 
 const Bar = ({ label, value, target, unit = "", goodLow = false }) => {
   const safeTarget = target > 0 ? target : 0;
-  const pct =
-    safeTarget > 0 ? Math.min(130, Math.round((value / safeTarget) * 100)) : 0;
+  const rawPct =
+    safeTarget > 0 ? Math.round((value / safeTarget) * 100) : 0;
+  const pct = safeTarget > 0 ? Math.max(0, rawPct) : 0;
+  const widthPct = Math.min(100, pct || 0); // visual width capped at 100%
 
   const lower = label.toLowerCase();
-
   let color;
+
   if (goodLow) {
     // e.g. Sugar (less is better)
     color =
@@ -20,40 +22,42 @@ const Bar = ({ label, value, target, unit = "", goodLow = false }) => {
   } else if (lower.includes("activity")) {
     // For activity: >=100% is GOOD
     color =
-      pct < 70 ? "bg-amber-500"
-      : pct <= 130 ? "bg-emerald-500"
-      : "bg-emerald-600";
+      pct < 70
+        ? "bg-amber-400"
+        : pct <= 130
+        ? "bg-emerald-500"
+        : "bg-emerald-600";
   } else {
     // Default: more than 100% (a lot more) is not ideal → red
     color =
       pct <= 100
-        ? "bg-blue-600"
+        ? "bg-sky-600"
         : pct <= 120
         ? "bg-amber-500"
         : "bg-red-500";
   }
 
-
-   return (
-    <div className="space-y-1">
+  return (
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs sm:text-sm text-slate-600">
-        <span>{label}</span>
+        <span className="font-medium text-slate-700">{label}</span>
         {safeTarget > 0 && (
-          <span>
+          <span className="font-medium">
             <b>{Math.round(value || 0)}</b> / {Math.round(safeTarget)} {unit} (
             {pct}%)
           </span>
         )}
       </div>
-      <div className="h-2.5 w-full rounded-full bg-slate-200">
+      <div className="h-3 w-full rounded-full bg-slate-100">
         <div
-          className={`h-2.5 rounded-full ${color}`}
-          style={{ width: `${pct}%` }}
+          className={`h-3 rounded-full ${color} transition-all`}
+          style={{ width: `${widthPct}%` }}
         />
       </div>
     </div>
   );
 };
+
 
 export default function TodayProgress({
   token,
@@ -72,7 +76,7 @@ export default function TodayProgress({
       try {
         setErr("");
         setLoading(true);
-        // Reuse the same logic as Daily Coach so targets & totals match
+        // Use the same backend logic as Daily Coach
         const res = await api(
           `/coach/motivate?dateISO=${today}&goal=${goal}`,
           { token }
@@ -91,7 +95,7 @@ export default function TodayProgress({
 
   if (loading || !data) {
     return (
-      <div className="mt-6 rounded-2xl bg-white p-5 shadow ring-1 ring-slate-100 text-sm text-slate-500">
+      <div className="mt-4 rounded-3xl bg-white/90 p-5 text-sm text-slate-500 ring-1 ring-slate-100 shadow-sm">
         Calculating your daily progress…
       </div>
     );
@@ -99,7 +103,7 @@ export default function TodayProgress({
 
   if (err) {
     return (
-      <div className="mt-6 rounded-2xl bg-white p-5 shadow ring-1 ring-slate-100 text-sm text-red-600">
+      <div className="mt-4 rounded-3xl bg-rose-50 p-5 text-sm text-rose-600 ring-1 ring-rose-100">
         {err}
       </div>
     );
@@ -111,8 +115,20 @@ export default function TodayProgress({
   const minutes = data.minutes ?? 0;
 
   return (
-    <div className="mt-6 rounded-2xl bg-white p-5 shadow ring-1 ring-slate-100">
-      <h3 className="text-lg font-semibold">Today vs Target</h3>
+   <div className="mt-6 rounded-3xl bg-gradient-to-br from-slate-900/2 via-white to-slate-50 p-6 ring-1 ring-slate-100 shadow-sm">
+    <div className="flex items-baseline justify-between gap-2">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-500">
+          Today vs target
+        </p>
+        <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
+          How your intake compares
+        </h3>
+      </div>
+      <span className="text-[10px] sm:text-xs text-slate-500">
+        Based on your profile &amp; goal
+      </span>
+    </div>
       <div className="mt-4 space-y-3">
         <Bar
           label="Calories"
@@ -152,9 +168,11 @@ export default function TodayProgress({
           unit="min"
         />
       </div>
-      <p className="mt-3 text-xs text-slate-500">
-        Targets use your profile and estimated activity level from today&apos;s
-        logs. For medical decisions, always confirm with a healthcare professional.
+
+      <p className="mt-3 text-[9px] sm:text-[10px] text-slate-500">
+        Targets adapt using your current weight, height, age, sex, and selected
+        goal. For medical decisions, always confirm with a healthcare
+        professional.
       </p>
     </div>
   );

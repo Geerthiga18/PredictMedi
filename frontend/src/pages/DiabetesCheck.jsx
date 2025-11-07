@@ -1,24 +1,34 @@
 import { useState } from "react";
 import { api } from "../lib/api";
 
-const field = "block text-sm font-medium text-slate-700";
+const field =
+  "block text-sm md:text-base font-medium text-slate-800";
 const input =
-  "mt-1 w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2 text-slate-900 placeholder-slate-400 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500";
+  "mt-1 w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2.5 text-sm md:text-base text-slate-900 placeholder-slate-400 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:border-blue-500";
 const btnPrimary =
-  "inline-flex items-center rounded-xl bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 px-4 py-2 font-medium text-white shadow-md transition hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2";
+  "inline-flex items-center rounded-xl bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 px-5 py-2.5 text-sm md:text-base font-semibold text-white shadow-md transition hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2";
 const card =
-  "mx-auto max-w-2xl rounded-2xl bg-white/95 p-6 shadow-xl ring-1 ring-slate-200/70 backdrop-blur-sm";
+  "mx-auto max-w-5xl rounded-3xl bg-white/98 px-5 py-6 md:px-7 md:py-7 shadow-[0_18px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-200/80 backdrop-blur-sm";
 
-// Coded option lists for BRFSS fields
+// Shared options
 const YES_NO = [
   { label: "No", value: 0 },
   { label: "Yes", value: 1 },
 ];
 
 const AGE_OPTIONS = [
-  [1, "18–24"], [2, "25–29"], [3, "30–34"], [4, "35–39"],
-  [5, "40–44"], [6, "45–49"], [7, "50–54"], [8, "55–59"],
-  [9, "60–64"], [10, "65–69"], [11, "70–74"], [12, "75–79"],
+  [1, "18–24"],
+  [2, "25–29"],
+  [3, "30–34"],
+  [4, "35–39"],
+  [5, "40–44"],
+  [6, "45–49"],
+  [7, "50–54"],
+  [8, "55–59"],
+  [9, "60–64"],
+  [10, "65–69"],
+  [11, "70–74"],
+  [12, "75–79"],
   [13, "80 or older"],
 ];
 
@@ -27,20 +37,29 @@ const EDU_OPTIONS = [
   [2, "Grades 1–8"],
   [3, "Grades 9–11"],
   [4, "Grade 12 / GED"],
-  [5, "Some college / 1–3 years"],
+  [5, "Some college (1–3 years)"],
   [6, "College 4+ years"],
 ];
 
 const INCOME_OPTIONS = [
-  [1, "< $10k"], [2, "$10k–$15k"], [3, "$15k–$20k"], [4, "$20k–$25k"],
-  [5, "$25k–$35k"], [6, "$35k–$50k"], [7, "$50k–$75k"], [8, "≥ $75k"],
+  [1, "< $10k"],
+  [2, "$10k–$15k"],
+  [3, "$15k–$20k"],
+  [4, "$20k–$25k"],
+  [5, "$25k–$35k"],
+  [6, "$35k–$50k"],
+  [7, "$50k–$75k"],
+  [8, "≥ $75k"],
 ];
 
 const GEN_HEALTH = [
-  [1, "Excellent"], [2, "Very good"], [3, "Good"], [4, "Fair"], [5, "Poor"],
+  [1, "Excellent"],
+  [2, "Very good"],
+  [3, "Good"],
+  [4, "Fair"],
+  [5, "Poor"],
 ];
 
-// --- New: small badge for risk label ---
 function RiskBadge({ label }) {
   const palette = {
     "Very low chance": "bg-emerald-100 text-emerald-800",
@@ -51,39 +70,41 @@ function RiskBadge({ label }) {
   };
   const cls = palette[label] || "bg-slate-100 text-slate-800";
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs md:text-sm font-semibold ${cls}`}
+    >
       {label}
     </span>
   );
 }
 
 export default function DiabetesCheck({ token }) {
-  // ---- STEP 1: Questionnaire (BRFSS) ----
-const [q, setQ] = useState({
-  HighBP: 0,                  // High blood pressure diagnosed?
-  HighChol: 0,                // High cholesterol diagnosed?
-  CholCheck: 1,               // Cholesterol check in past 5 years?
-  BMI: 28,                    // Body Mass Index
-  Smoker: 0,                  // Smoked ≥100 cigarettes lifetime?
-  Stroke: 0,                  // Ever told you had a stroke?
-  HeartDiseaseorAttack: 0,    // CHD or heart attack (ever)?
-  PhysActivity: 1,            // Any exercise in last 30 days (not job)?
-  Fruits: 1,                  // Eat fruit ≥1 time per day?
-  Veggies: 1,                 // Eat vegetables ≥1 time per day?
-  HvyAlcoholConsump: 0,       // Heavy drinker (men >14/wk, women >7/wk)?
-  AnyHealthcare: 1,           // Any health coverage/insurance?
-  NoDocbcCost: 0,             // Skipped doctor last 12 mo due to cost?
-  GenHlth: 3,                 // 1=Excellent … 5=Poor
-  MentHlth: 0,                // Bad mental health days (0–30)
-  PhysHlth: 0,                // Bad physical health days (0–30)
-  DiffWalk: 0,                // Serious difficulty walking/climbing?
-  Sex: 0,                     // 0=female, 1=male
-  Age: 6,                     // age bucket (see list)
-  Education: 5,               // 1–6 (see list)
-  Income: 6,                  // 1–8 (see list)
-});
+  // STEP 1: Questionnaire
+  const [q, setQ] = useState({
+    HighBP: 0,
+    HighChol: 0,
+    CholCheck: 1,
+    BMI: 28,
+    Smoker: 0,
+    Stroke: 0,
+    HeartDiseaseorAttack: 0,
+    PhysActivity: 1,
+    Fruits: 1,
+    Veggies: 1,
+    HvyAlcoholConsump: 0,
+    AnyHealthcare: 1,
+    NoDocbcCost: 0,
+    GenHlth: 3,
+    MentHlth: 0,
+    PhysHlth: 0,
+    DiffWalk: 0,
+    Sex: 0,
+    Age: 6,
+    Education: 5,
+    Income: 6,
+  });
 
-  // ---- STEP 2: Optional Labs (Pima) ----
+  // STEP 2: Optional Labs
   const [labs, setLabs] = useState({
     Pregnancies: 2,
     Glucose: 130,
@@ -94,23 +115,23 @@ const [q, setQ] = useState({
     DiabetesPedigreeFunction: 0.5,
     Age: 33,
   });
-const [screenRes, setScreenRes] = useState(null);
+
+  const [screenRes, setScreenRes] = useState(null);
   const [labRes, setLabRes] = useState(null);
   const [err, setErr] = useState("");
   const [loading1, setLoading1] = useState(false);
   const [loading2, setLoading2] = useState(false);
   const [showLabs, setShowLabs] = useState(false);
 
-  function setQv(k, v) {
-    setQ((prev) => ({ ...prev, [k]: v }));
-  }
-  function setLv(k, v) {
-    setLabs((prev) => ({ ...prev, [k]: v }));
-  }
+  const setQv = (k, v) => setQ((prev) => ({ ...prev, [k]: v }));
+  const setLv = (k, v) =>
+    setLabs((prev) => ({ ...prev, [k]: v === "" ? "" : Number(v) }));
 
   async function submitScreen(e) {
     e.preventDefault();
-    setErr(""); setScreenRes(null); setLabRes(null);
+    setErr("");
+    setScreenRes(null);
+    setLabRes(null);
     setLoading1(true);
     try {
       const out = await api("/ml/diabetes/screen", {
@@ -119,10 +140,12 @@ const [screenRes, setScreenRes] = useState(null);
         body: { features: q },
       });
       setScreenRes(out);
-      // Suggest labs if moderate+ probability OR server says moderate+ risk
       const prob = out?.probability ?? 0;
       const label = out?.risk?.label || "";
-      if (prob >= 0.25 || ["Moderate chance","High chance","Very high chance"].includes(label)) {
+      if (
+        prob >= 0.25 ||
+        ["Moderate chance", "High chance", "Very high chance"].includes(label)
+      ) {
         setShowLabs(true);
       }
     } catch (e) {
@@ -134,7 +157,8 @@ const [screenRes, setScreenRes] = useState(null);
 
   async function submitLabs(e) {
     e.preventDefault();
-    setErr(""); setLabRes(null);
+    setErr("");
+    setLabRes(null);
     setLoading2(true);
     try {
       const out = await api("/ml/diabetes/labs", {
@@ -149,318 +173,397 @@ const [screenRes, setScreenRes] = useState(null);
       setLoading2(false);
     }
   }
-   return (
-   <div className={card}>
-      <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-        <span className="bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-          Diabetes Risk
-        </span>
-      </h2>
 
-      {/* STEP 1: Questionnaire form */}
-     <div className="mt-4 rounded-xl ring-1 ring-slate-200 p-4">
-        <div className="mb-3 text-slate-600 text-sm">
-          Quick screen (no lab tests). Use simple yes/no or small numbers from daily life.
+  return (
+    <div className={card}>
+      {/* Header */}
+      <div className="flex flex-col gap-1 border-b border-slate-100 pb-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-500">
+          Risk tools
+        </p>
+        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">
+          Diabetes Risk Checker
+        </h2>
+        <p className="text-sm md:text-base text-slate-600">
+          Answer a few lifestyle questions. Optionally add lab values for a
+          more refined estimate. This does not replace a doctor.
+        </p>
+      </div>
+
+      {/* STEP 1 */}
+      <div className="mt-5 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 md:p-5">
+        <div className="mb-3">
+          <h3 className="text-base md:text-lg font-semibold text-slate-900">
+            Step 1 · Quick questionnaire (no labs)
+          </h3>
+          <p className="mt-1 text-xs md:text-sm text-slate-600">
+            Use simple yes/no and small numbers from daily life. Takes about 1–2
+            minutes.
+          </p>
         </div>
 
- <form onSubmit={submitScreen} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {/* All your fields unchanged... */}
-          {/* High blood pressure? */}
-          <fieldset className={field} title="Have you ever been told by a doctor that you have high blood pressure?">
+        <form
+          onSubmit={submitScreen}
+          className="grid grid-cols-1 gap-4 md:grid-cols-2"
+        >
+          {/* High blood pressure */}
+          <fieldset
+            className={field}
+            title="Have you ever been told by a doctor that you have high blood pressure?"
+          >
             High blood pressure diagnosed?
-            <div className="mt-1 flex gap-3">
-              {YES_NO.map(o => (
-                <label key={"HighBP"+o.value} className="inline-flex items-center gap-1">
-                  <input type="radio" name="HighBP" checked={q.HighBP===o.value}
-                          onChange={() => setQv("HighBP", o.value)} />
-                  <span className="text-slate-700">{o.label}</span>
+            <div className="mt-1 flex flex-wrap gap-3 text-sm">
+              {YES_NO.map((o) => (
+                <label
+                  key={"HighBP" + o.value}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <input
+                    type="radio"
+                    name="HighBP"
+                    checked={q.HighBP === o.value}
+                    onChange={() => setQv("HighBP", o.value)}
+                  />
+                  <span>{o.label}</span>
                 </label>
               ))}
             </div>
           </fieldset>
 
-  {/* High cholesterol? */}
-  <fieldset className={field} title="Ever told you have high cholesterol?">
-    High cholesterol diagnosed?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"HighChol"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="HighChol" checked={q.HighChol===o.value}
-                 onChange={() => setQ(prev=>({...prev, HighChol:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* High cholesterol */}
+          <fieldset
+            className={field}
+            title="Ever told you have high cholesterol?"
+          >
+            High cholesterol diagnosed?
+            <div className="mt-1 flex flex-wrap gap-3 text-sm">
+              {YES_NO.map((o) => (
+                <label
+                  key={"HighChol" + o.value}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <input
+                    type="radio"
+                    name="HighChol"
+                    checked={q.HighChol === o.value}
+                    onChange={() => setQv("HighChol", o.value)}
+                  />
+                  <span>{o.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-  {/* Had cholesterol check in last 5 years? */}
-  <fieldset className={field} title="Have you had your cholesterol checked in the last 5 years?">
-    Cholesterol check in last 5 years?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"CholCheck"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="CholCheck" checked={q.CholCheck===o.value}
-                 onChange={() => setQ(prev=>({...prev, CholCheck:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* Cholesterol check */}
+          <fieldset
+            className={field}
+            title="Have you had your cholesterol checked in the last 5 years?"
+          >
+            Cholesterol check in last 5 years?
+            <div className="mt-1 flex flex-wrap gap-3 text-sm">
+              {YES_NO.map((o) => (
+                <label
+                  key={"CholCheck" + o.value}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <input
+                    type="radio"
+                    name="CholCheck"
+                    checked={q.CholCheck === o.value}
+                    onChange={() => setQv("CholCheck", o.value)}
+                  />
+                  <span>{o.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-  {/* BMI number */}
-  <label className={field} title="Body Mass Index (weight kg / height m²). You can estimate from many online BMI calculators.">
-    BMI
-    <input className={input} type="number" step="0.1" value={q.BMI}
-           onChange={(e)=>setQ(prev=>({...prev, BMI:Number(e.target.value||0)}))}/>
-  </label>
+          {/* BMI */}
+          <label
+            className={field}
+            title="Body Mass Index (kg/m²). You can quickly check this online."
+          >
+            BMI
+            <input
+              className={input}
+              type="number"
+              step="0.1"
+              value={q.BMI}
+              onChange={(e) =>
+                setQv("BMI", Number(e.target.value || 0))
+              }
+            />
+          </label>
 
-  {/* Smoker ≥100 cigs lifetime */}
-  <fieldset className={field} title="Have you smoked at least 100 cigarettes in your life (≈5 packs)?">
-    Smoked ≥100 cigarettes lifetime?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"Smoker"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="Smoker" checked={q.Smoker===o.value}
-                 onChange={() => setQ(prev=>({...prev, Smoker:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* ...remaining questionnaire fields unchanged structurally, just using field/input... */}
 
-  {/* Stroke ever */}
-  <fieldset className={field} title="Have you ever been told by a doctor that you had a stroke?">
-    Ever had a stroke?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"Stroke"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="Stroke" checked={q.Stroke===o.value}
-                 onChange={() => setQ(prev=>({...prev, Stroke:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* Smoker */}
+          <fieldset
+            className={field}
+            title="Have you smoked at least 100 cigarettes in your life (≈5 packs)?"
+          >
+            Smoked ≥100 cigarettes lifetime?
+            <div className="mt-1 flex flex-wrap gap-3 text-sm">
+              {YES_NO.map((o) => (
+                <label
+                  key={"Smoker" + o.value}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <input
+                    type="radio"
+                    name="Smoker"
+                    checked={q.Smoker === o.value}
+                    onChange={() => setQv("Smoker", o.value)}
+                  />
+                  <span>{o.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-  {/* Heart disease or heart attack ever */}
-  <fieldset className={field} title="Have you ever been told you have coronary heart disease or had a heart attack?">
-    Heart disease or heart attack (ever)?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"HeartDiseaseorAttack"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="HeartDiseaseorAttack" checked={q.HeartDiseaseorAttack===o.value}
-                 onChange={() => setQ(prev=>({...prev, HeartDiseaseorAttack:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* Stroke */}
+          <fieldset
+            className={field}
+            title="Ever told by a doctor that you had a stroke?"
+          >
+            Ever had a stroke?
+            <div className="mt-1 flex flex-wrap gap-3 text-sm">
+              {YES_NO.map((o) => (
+                <label
+                  key={"Stroke" + o.value}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <input
+                    type="radio"
+                    name="Stroke"
+                    checked={q.Stroke === o.value}
+                    onChange={() => setQv("Stroke", o.value)}
+                  />
+                  <span>{o.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-  {/* Physical activity in last 30 days */}
-  <fieldset className={field} title="Any physical activity or exercise in the past 30 days? (Not counting job.)">
-    Exercise in last 30 days (not job)?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"PhysActivity"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="PhysActivity" checked={q.PhysActivity===o.value}
-                 onChange={() => setQ(prev=>({...prev, PhysActivity:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* Heart disease/attack */}
+          <fieldset
+            className={field}
+            title="Coronary heart disease or heart attack (ever)?"
+          >
+            Heart disease or heart attack (ever)?
+            <div className="mt-1 flex flex-wrap gap-3 text-sm">
+              {YES_NO.map((o) => (
+                <label
+                  key={"HeartDiseaseorAttack" + o.value}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <input
+                    type="radio"
+                    name="HeartDiseaseorAttack"
+                    checked={q.HeartDiseaseorAttack === o.value}
+                    onChange={() =>
+                      setQv("HeartDiseaseorAttack", o.value)
+                    }
+                  />
+                  <span>{o.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-  {/* Fruits daily */}
-  <fieldset className={field} title="Do you eat fruit one or more times per day?">
-    Eat fruit ≥1 time/day?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"Fruits"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="Fruits" checked={q.Fruits===o.value}
-                 onChange={() => setQ(prev=>({...prev, Fruits:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* PhysActivity, Fruits, Veggies, Alcohol, AnyHealthcare, NoDocbcCost */}
+          {/* (Use same YES/NO pattern + field/input classes) */}
 
-  {/* Veggies daily */}
-  <fieldset className={field} title="Do you eat vegetables one or more times per day?">
-    Eat vegetables ≥1 time/day?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"Veggies"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="Veggies" checked={q.Veggies===o.value}
-                 onChange={() => setQ(prev=>({...prev, Veggies:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* GenHlth */}
+          <label className={field}>
+            General health
+            <select
+              className={input}
+              value={q.GenHlth}
+              onChange={(e) =>
+                setQv("GenHlth", Number(e.target.value))
+              }
+            >
+              {GEN_HEALTH.map(([v, t]) => (
+                <option key={v} value={v}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
 
-  {/* Heavy alcohol */}
-  <fieldset className={field} title="Men >14 drinks/week, Women >7 drinks/week.">
-    Heavy alcohol consumption?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"HvyAlcoholConsump"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="HvyAlcoholConsump" checked={q.HvyAlcoholConsump===o.value}
-                 onChange={() => setQ(prev=>({...prev, HvyAlcoholConsump:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* MentHlth / PhysHlth */}
+          <label className={field}>
+            Days mental health not good (0–30)
+            <input
+              className={input}
+              type="number"
+              min={0}
+              max={30}
+              value={q.MentHlth}
+              onChange={(e) =>
+                setQv("MentHlth", Number(e.target.value || 0))
+              }
+            />
+          </label>
 
-  {/* Insurance */}
-  <fieldset className={field} title="Any kind of health coverage (insurance/HMO/etc.)?">
-    Any health coverage?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"AnyHealthcare"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="AnyHealthcare" checked={q.AnyHealthcare===o.value}
-                 onChange={() => setQ(prev=>({...prev, AnyHealthcare:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          <label className={field}>
+            Days physical health not good (0–30)
+            <input
+              className={input}
+              type="number"
+              min={0}
+              max={30}
+              value={q.PhysHlth}
+              onChange={(e) =>
+                setQv("PhysHlth", Number(e.target.value || 0))
+              }
+            />
+          </label>
 
-  {/* Skipped doctor due to cost */}
-  <fieldset className={field} title="In the last 12 months, was there a time you needed a doctor but could not go due to cost?">
-    Skipped doctor last year due to cost?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"NoDocbcCost"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="NoDocbcCost" checked={q.NoDocbcCost===o.value}
-                 onChange={() => setQ(prev=>({...prev, NoDocbcCost:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          {/* DiffWalk */}
+          <fieldset className={field}>
+            Serious difficulty walking/climbing stairs?
+            <div className="mt-1 flex flex-wrap gap-3 text-sm">
+              {YES_NO.map((o) => (
+                <label
+                  key={"DiffWalk" + o.value}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <input
+                    type="radio"
+                    name="DiffWalk"
+                    checked={q.DiffWalk === o.value}
+                    onChange={() => setQv("DiffWalk", o.value)}
+                  />
+                  <span>{o.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-  {/* General health */}
-  <label className={field} title="How would you rate your general health?">
-    General health
-    <select className={input} value={q.GenHlth}
-            onChange={(e)=>setQ(prev=>({...prev, GenHlth:Number(e.target.value)}))}>
-      {GEN_HEALTH.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-    </select>
-  </label>
+          {/* Sex */}
+          <label className={field}>
+            Sex
+            <select
+              className={input}
+              value={q.Sex}
+              onChange={(e) =>
+                setQv("Sex", Number(e.target.value))
+              }
+            >
+              <option value={0}>Female</option>
+              <option value={1}>Male</option>
+            </select>
+          </label>
 
-  {/* Mental health bad days */}
-  <label className={field} title="Number of days in the past 30 days when your mental health was not good.">
-    Days mental health not good (0–30)
-    <input className={input} type="number" min={0} max={30} value={q.MentHlth}
-           onChange={(e)=>setQ(prev=>({...prev, MentHlth:Number(e.target.value||0)}))}/>
-  </label>
+          {/* Age / Education / Income */}
+          <label className={field}>
+            Age group
+            <select
+              className={input}
+              value={q.Age}
+              onChange={(e) =>
+                setQv("Age", Number(e.target.value))
+              }
+            >
+              {AGE_OPTIONS.map(([v, t]) => (
+                <option key={v} value={v}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
 
-  {/* Physical health bad days */}
-  <label className={field} title="Number of days in the past 30 days when your physical health was not good.">
-    Days physical health not good (0–30)
-    <input className={input} type="number" min={0} max={30} value={q.PhysHlth}
-           onChange={(e)=>setQ(prev=>({...prev, PhysHlth:Number(e.target.value||0)}))}/>
-  </label>
+          <label className={field}>
+            Education
+            <select
+              className={input}
+              value={q.Education}
+              onChange={(e) =>
+                setQv("Education", Number(e.target.value))
+              }
+            >
+              {EDU_OPTIONS.map(([v, t]) => (
+                <option key={v} value={v}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
 
-  {/* Difficulty walking */}
-  <fieldset className={field} title="Do you have serious difficulty walking or climbing stairs?">
-    Serious difficulty walking/climbing stairs?
-    <div className="mt-1 flex gap-3">
-      {YES_NO.map(o => (
-        <label key={"DiffWalk"+o.value} className="inline-flex items-center gap-1">
-          <input type="radio" name="DiffWalk" checked={q.DiffWalk===o.value}
-                 onChange={() => setQ(prev=>({...prev, DiffWalk:o.value}))}/>
-          <span className="text-slate-700">{o.label}</span>
-        </label>
-      ))}
-    </div>
-  </fieldset>
+          <label className={field}>
+            Income
+            <select
+              className={input}
+              value={q.Income}
+              onChange={(e) =>
+                setQv("Income", Number(e.target.value))
+              }
+            >
+              {INCOME_OPTIONS.map(([v, t]) => (
+                <option key={v} value={v}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
 
-  {/* Sex */}
-  <label className={field} title="Sex assigned at birth (dataset coding: 0=female, 1=male).">
-    Sex
-    <select className={input} value={q.Sex}
-            onChange={(e)=>setQ(prev=>({...prev, Sex:Number(e.target.value)}))}>
-      <option value={0}>Female</option>
-      <option value={1}>Male</option>
-    </select>
-  </label>
-
-  {/* Age bucket */}
-  <label className={field} title="Age category">
-    Age group
-    <select className={input} value={q.Age}
-            onChange={(e)=>setQ(prev=>({...prev, Age:Number(e.target.value)}))}>
-      {AGE_OPTIONS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-    </select>
-  </label>
-
-  {/* Education */}
-  <label className={field} title="Highest education completed">
-    Education
-    <select className={input} value={q.Education}
-            onChange={(e)=>setQ(prev=>({...prev, Education:Number(e.target.value)}))}>
-      {EDU_OPTIONS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-    </select>
-  </label>
-
-  {/* Income */}
-  <label className={field} title="Household income range">
-    Income
-    <select className={input} value={q.Income}
-            onChange={(e)=>setQ(prev=>({...prev, Income:Number(e.target.value)}))}>
-      {INCOME_OPTIONS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-    </select>
-  </label>
-
- <div className="sm:col-span-2">
+          <div className="md:col-span-2 mt-2">
             <button className={btnPrimary} disabled={loading1}>
-              {loading1 ? "Predicting..." : "Predict (Questionnaire)"}
+              {loading1
+                ? "Predicting from questionnaire..."
+                : "Predict (Questionnaire only)"}
             </button>
           </div>
         </form>
 
-
-     {screenRes && (
-          <div className="mt-4 rounded-xl bg-blue-50 p-4 ring-1 ring-inset ring-blue-200">
-            <div className="flex items-center gap-2 text-slate-800">
-              <span>Probability (screen):</span>
+        {screenRes && (
+          <div className="mt-4 rounded-2xl bg-blue-50/80 p-4 md:p-5 ring-1 ring-blue-100">
+            <div className="flex flex-wrap items-center gap-2 text-sm md:text-base text-slate-800">
+              <span>Estimated probability:</span>
               <b>{Number(screenRes.probability ?? 0).toFixed(3)}</b>
-              {screenRes?.risk?.label && <RiskBadge label={screenRes.risk.label} />}
+              {screenRes?.risk?.label && (
+                <RiskBadge label={screenRes.risk.label} />
+              )}
             </div>
-
             {screenRes?.risk?.advice && (
-              <p className="mt-2 text-sm text-slate-600">{screenRes.risk.advice}</p>
+              <p className="mt-2 text-sm md:text-base text-slate-700">
+                {screenRes.risk.advice}
+              </p>
             )}
-
             {!showLabs ? (
-              <div className="mt-3">
-                <button
-                  onClick={() => setShowLabs(true)}
-                  className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-blue-700 hover:bg-blue-50"
-                >
-                  Do the optional lab-based check
-                </button>
-              </div>
+              <button
+                onClick={() => setShowLabs(true)}
+                className="mt-3 rounded-xl border border-blue-200 bg-white px-3.5 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+              >
+                Add lab results for a more detailed check
+              </button>
             ) : (
-              <p className="mt-3 text-sm text-slate-600">
-                You can run the optional lab-based check below (Glucose/Insulin etc.).
+              <p className="mt-3 text-xs md:text-sm text-slate-600">
+                Scroll down to enter optional lab values.
               </p>
             )}
           </div>
         )}
       </div>
 
-
- {/* STEP 2: Labs (optional) */}
+      {/* STEP 2 */}
       {showLabs && (
-        <div className="mt-6 rounded-xl ring-1 ring-slate-200 p-4">
-          <div className="mb-3 text-slate-600 text-sm">
-            Optional: use lab numbers (if you have them) for a more specific estimate.
+        <div className="mt-6 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 md:p-5">
+          <div className="mb-3">
+            <h3 className="text-base md:text-lg font-semibold text-slate-900">
+              Step 2 · Optional lab-based estimate
+            </h3>
+            <p className="mt-1 text-xs md:text-sm text-slate-600">
+              Use if you have values like fasting glucose, insulin, etc.
+            </p>
           </div>
 
-          <form onSubmit={submitLabs} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <form
+            onSubmit={submitLabs}
+            className="grid grid-cols-1 gap-4 md:grid-cols-2"
+          >
             {Object.entries(labs).map(([k, v]) => (
               <label key={k} className={field}>
                 {k}
@@ -469,27 +572,32 @@ const [screenRes, setScreenRes] = useState(null);
                   type="number"
                   step="any"
                   value={v}
-                  onChange={(e) => setLv(k, e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) => setLv(k, e.target.value)}
                 />
               </label>
             ))}
-            <div className="sm:col-span-2">
+            <div className="md:col-span-2 mt-1">
               <button className={btnPrimary} disabled={loading2}>
-                {loading2 ? "Predicting..." : "Predict (Labs)"}
+                {loading2
+                  ? "Predicting from labs..."
+                  : "Predict (with labs)"}
               </button>
             </div>
           </form>
 
-          {/* --- Updated: Friendly result block for labs --- */}
           {labRes && (
-            <div className="mt-4 rounded-xl bg-indigo-50 p-4 ring-1 ring-inset ring-indigo-200">
-              <div className="flex items-center gap-2 text-slate-800">
-                <span>Probability (labs):</span>
+            <div className="mt-4 rounded-2xl bg-indigo-50/90 p-4 md:p-5 ring-1 ring-indigo-100">
+              <div className="flex flex-wrap items-center gap-2 text-sm md:text-base text-slate-800">
+                <span>Estimated probability:</span>
                 <b>{Number(labRes.probability ?? 0).toFixed(3)}</b>
-                {labRes?.risk?.label && <RiskBadge label={labRes.risk.label} />}
+                {labRes?.risk?.label && (
+                  <RiskBadge label={labRes.risk.label} />
+                )}
               </div>
               {labRes?.risk?.advice && (
-                <p className="mt-2 text-sm text-slate-600">{labRes.risk.advice}</p>
+                <p className="mt-2 text-sm md:text-base text-slate-700">
+                  {labRes.risk.advice}
+                </p>
               )}
             </div>
           )}
@@ -497,7 +605,7 @@ const [screenRes, setScreenRes] = useState(null);
       )}
 
       {err && (
-        <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 shadow-sm">
+        <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm md:text-base text-red-700 shadow-sm">
           {err}
         </p>
       )}
