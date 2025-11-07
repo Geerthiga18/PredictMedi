@@ -1,5 +1,4 @@
 import {
-  BrowserRouter,
   Routes,
   Route,
   NavLink,
@@ -8,7 +7,6 @@ import {
 import { useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import { api } from "./lib/api";
 import { useState } from "react";
 import ActivityLog from "./pages/ActivityLog";
 import MealsLog from "./pages/MealsLog";
@@ -17,6 +15,9 @@ import DiabetesCheck from "./pages/DiabetesCheck";
 import HeartCheck from "./pages/HeartCheck";
 import CoachCard from "./components/CoachCard";
 import TodayProgress from "./components/TodayProgress";
+import WeeklyReview from "./components/WeeklyReview";
+import AiLogInput from "./components/AiLogInput";
+import Profile from "./pages/Profile";
 
 function Protected({ token, children }) {
   if (!token) return <Navigate to="/login" replace />;
@@ -33,41 +34,25 @@ const container = "container mx-auto p-4 md:p-6";
 const card =
   "mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow ring-1 ring-slate-100";
 
-function Home({ user, token }) {
-  const [msg, setMsg] = useState("");
-  async function whoAmI() {
-    try {
-      const res = await api("/users/me", { token });
-      setMsg(`Hello ${res.user.name} (${res.user.email})`);
-    } catch (e) {
-      setMsg(e.message);
-    }
-  }
-  return (
-    <div className={card}>
-      <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
-      <p className="mt-2 text-slate-600">
-        Signed in as: <span className="font-medium">{user?.email}</span>
-      </p>
-      <button className={`${btnPrimary} mt-4`} onClick={whoAmI}>
-        Check /users/me
-      </button>
-      {msg && <p className="mt-3 text-sm text-slate-700">{msg}</p>}
-    </div>
-  );
-}
-
 export default function App() {
   const { token, setToken, user, setUser, logout } = useAuth();
+  const [refreshKey, setRefreshKey] = useState(0);
+
   function onAuth(t, u) {
     setToken(t);
     setUser(u);
+    setRefreshKey((k) => k + 1);
+  }
+
+  function handleUserUpdate(u) {
+    setUser(u);
+    setRefreshKey((k) => k + 1);
   }
 
   return (
     <div className={shell}>
       {/* Top nav */}
-      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b border-slate-200 shadow-sm">
+      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-slate-200 shadow-sm">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold text-slate-900">
@@ -92,6 +77,14 @@ export default function App() {
               Activity
             </NavLink>
             <NavLink
+              to="/meals"
+              className={({ isActive }) =>
+                `${linkBase} ${isActive ? linkActive : ""}`
+              }
+            >
+              Meals
+            </NavLink>
+            <NavLink
               to="/diabetes"
               className={({ isActive }) =>
                 `${linkBase} ${isActive ? linkActive : ""}`
@@ -107,14 +100,13 @@ export default function App() {
             >
               Heart Disease
             </NavLink>
-
             <NavLink
-              to="/meals"
+              to="/profile"
               className={({ isActive }) =>
                 `${linkBase} ${isActive ? linkActive : ""}`
               }
             >
-              Meals
+              Profile
             </NavLink>
             {!token && (
               <>
@@ -137,7 +129,13 @@ export default function App() {
               </>
             )}
             {token && (
-              <button className={btnPrimary} onClick={logout}>
+              <button
+                className={btnPrimary}
+                onClick={() => {
+                  logout();
+                  setRefreshKey((k) => k + 1);
+                }}
+              >
                 Logout
               </button>
             )}
@@ -148,37 +146,59 @@ export default function App() {
       {/* Main content */}
       <main className={container}>
         <Routes>
-     <Route
-  path="/"
-  element={
-    <Protected token={token}>
-      <div className={card}>
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Welcome {user?.name || user?.email}
-        </h2>
-        <p className="mt-2 text-slate-600">
-          Use the nav to log Activity & Meals.
-        </p>
+          {/* Home / Dashboard */}
+          <Route
+            path="/"
+            element={
+              <Protected token={token}>
+                <div className={card}>
+                  <h2 className="text-2xl font-semibold tracking-tight">
+                    Welcome {user?.name || user?.email}
+                  </h2>
+                  <p className="mt-2 text-slate-600">
+                    Log today&apos;s meals and activities to get your personalized health review.
+                  </p>
 
-        {/* Coach card */}
-        <div className="mt-6">
-          <CoachCard
-            token={token}
-            activity="light"
-            goal="maintain"
-            sugarG={0}
-            activityMinutes={30}
-            dateISO={new Date().toISOString().slice(0,10)} 
+                  <div className="mt-6 space-y-6">
+                    <AiLogInput
+                      token={token}
+                      onLogged={() => setRefreshKey((k) => k + 1)}
+                    />
+                    <CoachCard
+                      token={token}
+                      dateISO={new Date().toISOString().slice(0, 10)}
+                      refreshKey={refreshKey}
+                    />
+                    <TodayProgress
+                      token={token}
+                      goal={user?.goal || "maintain"}
+                      refreshKey={refreshKey}
+                    />
+                    <WeeklyReview
+                      token={token}
+                      refreshKey={refreshKey}
+                    />
+                  </div>
+                </div>
+              </Protected>
+            }
           />
-          <div className="mt-6">
-  <TodayProgress token={token} activity="light" goal="maintain" />
-</div>
-        </div>
-      </div>
-    </Protected>
-  }
-/>
 
+          {/* Profile */}
+          <Route
+            path="/profile"
+            element={
+              <Protected token={token}>
+                <Profile
+                  token={token}
+                  user={user}
+                  onUpdate={handleUserUpdate}
+                />
+              </Protected>
+            }
+          />
+
+          {/* Other pages */}
           <Route
             path="/activity"
             element={
@@ -211,16 +231,28 @@ export default function App() {
               </Protected>
             }
           />
-        <Route
-  path="/login"
-  element={token ? <Navigate to="/" replace /> : <Login onAuth={onAuth} />}
-/>
-<Route
-  path="/register"
-  element={token ? <Navigate to="/" replace /> : <Register onAuth={onAuth} />}
-/>
 
-          
+          {/* Auth */}
+          <Route
+            path="/login"
+            element={
+              token ? (
+                <Navigate to="/" replace />
+              ) : (
+                <Login onAuth={onAuth} />
+              )
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              token ? (
+                <Navigate to="/" replace />
+              ) : (
+                <Register onAuth={onAuth} />
+              )
+            }
+          />
         </Routes>
       </main>
     </div>

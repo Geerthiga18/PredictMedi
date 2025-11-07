@@ -9,6 +9,7 @@ from .routes_nutrition import router as nutrition_router
 from .routes_coach import router as coach_router
 import numpy as np
 from .config import DIABETES_API_URL, HEART_API_URL
+from .routes_ai import router as ai_router
 import httpx
 
 # 1) Create the app first
@@ -31,6 +32,7 @@ app.include_router(activity_router)
 app.include_router(meals_router)
 app.include_router(nutrition_router)
 app.include_router(coach_router)
+app.include_router(ai_router)
 
 
 # 3) (Optional) DB init — keep commented while you’re debugging

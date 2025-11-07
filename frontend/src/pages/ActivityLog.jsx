@@ -16,7 +16,12 @@ export default function ActivityLog({ token }) {
       setLogs(res.logs);
     } catch (e) { setMsg(e.message); }
   }
-  useEffect(()=>{ load(); },[]);
+ useEffect(() => { 
+  if (!token) return;
+  load(); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [token]);
+
 
   async function submit(e) {
     e.preventDefault();

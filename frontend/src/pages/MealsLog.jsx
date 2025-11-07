@@ -13,7 +13,12 @@ export default function MealsLog({ token }) {
   const [grams, setGrams] = useState("");
   const [msg, setMsg] = useState("");
 
-  useEffect(() => { load(); }, [today]);
+ useEffect(() => { 
+  if (!token) return;
+  load(); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [today, token]);
+
 
   async function load() {
     try {

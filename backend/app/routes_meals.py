@@ -37,17 +37,18 @@ async def get_meal_log(
 
 @router.post("/log", status_code=201)
 async def log_meal(payload: MealIn, user=Depends(get_current_user)):
-    total_cal = sum((getattr(i, "kcal", None) or 0) for i in payload.items)
+    total_cal = sum((i.kcal or 0) for i in payload.items)
     doc = {
         "userId": user["id"],
         "dateISO": payload.date.isoformat(),
-        "items": [i.dict() for i in payload.items],
+        "items": [i.model_dump() for i in payload.items],
         "totalCalories": total_cal,
         "notes": payload.notes,
         "createdAt": datetime.utcnow().isoformat()
     }
     await meals.insert_one(doc)
     return {"ok": True, "totalCalories": total_cal}
+
 
 
 @router.get("/logs")
