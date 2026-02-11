@@ -9,6 +9,9 @@ from google import genai
 
 from .deps import get_current_user
 from .db import meals, activity
+import asyncio
+from google.api_core.exceptions import ResourceExhausted, TooManyRequests, ServiceUnavailable
+
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -141,14 +144,67 @@ async def ai_ingest(
         raise HTTPException(status_code=400, detail="No text provided")
 
     try:
-        resp = client.models.generate_content(
-            model="gemini-2.0-flash",  # or your chosen model
-            contents=[PROMPT, f"User description for {dateISO}: {text}"]
+        # Optional: small retry for temporary rate-limit / service hiccups
+        last_err = None
+        data = None
+
+        for attempt in range(3):  # 3 attempts max
+            try:
+                # Using Google GenAI SDK (google-genai package)
+                # Valid models: gemini-2.5-flash, gemini-1.5-flash, gemini-1.5-pro
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",  # Using stable 2.5 model
+                    contents=f"{PROMPT}\n\nUser description for {dateISO}: {text}"
+                )
+                
+                raw = response.text or ""
+                data = _safe_parse_json(raw)
+                last_err = None
+                break
+            except (TooManyRequests, ServiceUnavailable) as e:
+                last_err = e
+                await asyncio.sleep(2.0 * (attempt + 1))  # exponential backoff
+            except ResourceExhausted as e:
+                # Don't retry on quota exhausted - fail immediately with clear message
+                raise HTTPException(
+                    status_code=429,
+                    detail="Gemini API quota exceeded. Please wait a few minutes and try again, or check your billing at https://ai.google.dev/gemini-api/docs/rate-limits"
+                )
+            except Exception as e:
+                # Log the actual error for debugging
+                print(f"Gemini API Error (attempt {attempt + 1}): {str(e)}")
+                last_err = e
+                if attempt == 2:  # Last attempt
+                    raise
+
+        if last_err and data is None:
+            raise last_err
+
+    except ResourceExhausted as e:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Gemini API quota exceeded. Please check your plan and billing. Visit: https://ai.google.dev/gemini-api/docs/rate-limits. Error: {str(e)}",
         )
-        raw = resp.text or ""
-        data = _safe_parse_json(raw)
+    except TooManyRequests as e:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests to Gemini API. Please wait a moment and try again. Error: {str(e)}",
+        )
+    except ServiceUnavailable as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Gemini service temporarily unavailable. Try again in a moment. Error: {str(e)}",
+        )
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to parse AI response as JSON. The model may have returned invalid format. Error: {str(e)}"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI parsing failed: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"AI parsing failed: {str(e)}"
+        )
 
     meals_in = []
     for m in data.get("meals", []):
