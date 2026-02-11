@@ -27,62 +27,73 @@ export default function WeeklyReview({ token, refreshKey = 0 }) {
 
   if (loading) {
     return (
-      <div className="mt-4 rounded-3xl bg-white/90 p-5 text-sm text-slate-500 ring-1 ring-slate-100 shadow-sm">
-        Calculating your weekly review…
+      <div className="glass-card p-5 text-sm text-slate-500">
+        <div className="flex items-center gap-2">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-pm-accent/30 border-t-pm-accent" />
+          Calculating your weekly review…
+        </div>
       </div>
     );
   }
 
   if (err || !data) {
     return (
-      <div className="mt-4 rounded-3xl bg-rose-50 p-5 text-sm text-rose-600 ring-1 ring-rose-100">
+      <div className="glass-card p-5 text-sm text-red-400">
         {err || "Unable to load weekly review."}
       </div>
     );
   }
 
   return (
-    <div className="mt-4 rounded-3xl bg-gradient-to-br from-slate-900/2 via-white to-sky-50 p-5 ring-1 ring-slate-100 shadow-sm">
-     <div className="flex items-baseline justify-between gap-2">
-  <div>
-    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-500">
-      Weekly health review
-    </p>
-    <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-      Your last 7 days at a glance
-    </h3>
-  </div>
-  <p className="text-[10px] sm:text-xs text-slate-500">
-    {data.startISO} → {data.endISO}
-  </p>
-</div>
+    <div className="glass-card p-5 md:p-6">
+      <div className="flex items-baseline justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-pm-purple">
+            Weekly Health Review
+          </p>
+          <h3 className="text-lg font-bold text-white">
+            Your last 7 days at a glance
+          </h3>
+        </div>
+        <p className="text-xs text-slate-500">
+          {data.startISO} → {data.endISO}
+        </p>
+      </div>
 
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Stat label="Avg Calories" value={data.avg_kcal} target={data.target_kcal} unit="kcal" kind="kcal" />
+        <Stat label="Avg Activity" value={data.avg_minutes} target={data.target_minutes} unit="min/day" kind="activity" />
+      </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-xs sm:text-sm">
-        <Stat
-          label="Avg Calories"
-          value={data.avg_kcal}
-          target={data.target_kcal}
-          unit="kcal"
-          kind="kcal"
-        />
-        <Stat
-          label="Avg Activity"
-          value={data.avg_minutes}
-          target={data.target_minutes}
-          unit="min/day"
-          kind="activity"
-        />
-        <div className="col-span-2 mt-1 text-[10px] text-slate-600">
-          <b>Balanced days:</b> {data.good_days} / 7{" "}
-          <span className="mx-1 text-slate-400">•</span>
-          <b>Needs attention:</b> {data.bad_days} / 7
+      {/* Day dots */}
+      <div className="mt-4 flex items-center gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-1.5">
+          <span className="font-semibold text-white">Balanced:</span>
+          <div className="flex gap-1">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <span
+                key={i}
+                className={`h-2.5 w-2.5 rounded-full transition-all ${
+                  i < (data.good_days ?? 0) ? "bg-pm-accent shadow-sm shadow-pm-accent/30" : "bg-white/10"
+                }`}
+              />
+            ))}
+          </div>
+          <span>{data.good_days}/7</span>
+        </div>
+        <span className="text-slate-600">•</span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-semibold text-white">Attention:</span>
+          <span className="text-amber-400">{data.bad_days}/7</span>
         </div>
       </div>
 
-      <ul className="mt-3 list-disc space-y-0.5 pl-5 text-[10px] sm:text-xs text-slate-700">
+      <ul className="mt-4 space-y-1.5 stagger-children">
         {(data.messages || []).map((m, i) => (
-          <li key={i}>{m}</li>
+          <li key={i} className="flex items-start gap-2 text-sm text-slate-300 animate-slide-up">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-pm-purple/60" />
+            {m}
+          </li>
         ))}
       </ul>
     </div>
@@ -98,37 +109,26 @@ function Stat({ label, value, target, unit, kind }) {
 
   let color;
   if (kind === "activity") {
-    color =
-      pct < 70
-        ? "bg-amber-400"
-        : pct <= 130
-        ? "bg-emerald-500"
-        : "bg-emerald-600";
+    color = pct < 70 ? "bg-amber-400" : pct <= 130 ? "bg-pm-accent" : "bg-emerald-400";
   } else {
-    color =
-      pct <= 110
-        ? "bg-sky-600"
-        : pct <= 130
-        ? "bg-amber-500"
-        : "bg-rose-500";
+    color = pct <= 110 ? "bg-pm-cyan" : pct <= 130 ? "bg-amber-400" : "bg-rose-500";
   }
 
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs sm:text-sm text-slate-600">
-        <span className="font-medium text-slate-700">{label}</span>
-        <span className="font-medium">
-          <b>{Math.round(value || 0)}</b> / {Math.round(target)} {unit} (
-          {pct}%)
+    <div className="space-y-2">
+      <div className="flex justify-between text-sm">
+        <span className="font-medium text-slate-300">{label}</span>
+        <span className="text-xs text-slate-400">
+          <span className="font-semibold text-white">{Math.round(value || 0)}</span> / {Math.round(target)} {unit}
+          <span className="ml-1 text-slate-500">({pct}%)</span>
         </span>
       </div>
-      <div className="mt-0.5 h-2.5 w-full rounded-full bg-slate-100">
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/5">
         <div
-          className={`h-2.5 rounded-full ${color}`}
-          style={{ width: `${widthPct}%` }}
+          className={`h-2.5 rounded-full ${color} animate-bar-fill`}
+          style={{ "--bar-width": `${widthPct}%`, width: `${widthPct}%` }}
         />
       </div>
     </div>
   );
 }
-

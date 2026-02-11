@@ -1,4 +1,3 @@
-// Profile.jsx
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 
@@ -25,11 +24,7 @@ export default function Profile({ token, user, onUpdate }) {
     };
 
     try {
-      const res = await api("/users/me", {
-        method: "PUT",
-        body,
-        token,
-      });
+      const res = await api("/users/me", { method: "PUT", body, token });
       onUpdate?.(res.user);
       setMsg("Profile updated. Your targets have been recalculated.");
     } catch (e) {
@@ -43,65 +38,68 @@ export default function Profile({ token, user, onUpdate }) {
   }, [age, sex, heightCm, weightKg]);
 
   return (
-    <form
-      onSubmit={save}
-      className="mx-auto mt-6 max-w-md rounded-2xl bg-white/95 p-6 shadow-xl ring-1 ring-slate-200/70 backdrop-blur-sm"
-    >
-      <h2 className="mb-3 text-2xl font-semibold tracking-tight text-slate-900">
-        Profile
-      </h2>
+    <div className="mx-auto max-w-md">
+      <div className="glass-card p-6 md:p-8">
+        {/* Avatar */}
+        <div className="flex flex-col items-center mb-6">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-pm-accent to-pm-cyan p-[3px]">
+            <div className="flex h-full w-full items-center justify-center rounded-full bg-pm-dark text-2xl font-bold text-pm-accent">
+              {(user?.name || user?.email || "U")[0].toUpperCase()}
+            </div>
+          </div>
+          <h2 className="mt-3 text-xl font-bold text-white">
+            {user?.name || "Your Profile"}
+          </h2>
+          <p className="text-sm text-slate-400">{user?.email || ""}</p>
+        </div>
 
-      <input
-        className="mb-2 w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2"
-        placeholder="Age"
-        type="number"
-        value={age}
-        onChange={(e) => setAge(e.target.value)}
-      />
+        <form onSubmit={save} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Age</label>
+              <input className="pm-input" placeholder="25" type="number" value={age} onChange={(e) => setAge(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Sex</label>
+              <select className="pm-input" value={sex} onChange={(e) => setSex(e.target.value)}>
+                <option value="">Select</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
 
-      <select
-        className="mb-2 w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2"
-        value={sex}
-        onChange={(e) => setSex(e.target.value)}
-      >
-        <option value="">Sex</option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
-        <option value="other">Other</option>
-      </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Height (cm)</label>
+              <input className="pm-input" placeholder="170" type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Weight (kg)</label>
+              <input className="pm-input" placeholder="70" type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} />
+            </div>
+          </div>
 
-      <input
-        className="mb-2 w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2"
-        placeholder="Height (cm)"
-        type="number"
-        value={heightCm}
-        onChange={(e) => setHeightCm(e.target.value)}
-      />
+          <button className="pm-btn w-full mt-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            Save Profile
+          </button>
+        </form>
 
-      <input
-        className="mb-3 w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2"
-        placeholder="Weight (kg)"
-        type="number"
-        value={weightKg}
-        onChange={(e) => setWeightKg(e.target.value)}
-      />
-
-      <button
-        className="w-full rounded-xl bg-blue-600 px-4 py-2 font-medium text-white"
-      >
-        Save
-      </button>
-
-      {msg && (
-        <p className="mt-3 text-sm text-emerald-700">
-          {msg}
-        </p>
-      )}
-      {err && (
-        <p className="mt-3 text-sm text-red-600">
-          {err}
-        </p>
-      )}
-    </form>
+        {msg && (
+          <div className="mt-4 rounded-xl bg-pm-accent/10 px-4 py-3 text-sm text-pm-accent ring-1 ring-pm-accent/20 animate-slide-up">
+            {msg}
+          </div>
+        )}
+        {err && (
+          <div className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ring-1 ring-red-500/20 animate-slide-up">
+            {err}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

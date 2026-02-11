@@ -16,12 +16,11 @@ export default function ActivityLog({ token }) {
       setLogs(res.logs);
     } catch (e) { setMsg(e.message); }
   }
- useEffect(() => { 
-  if (!token) return;
-  load(); 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [token]);
-
+  useEffect(() => {
+    if (!token) return;
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   async function submit(e) {
     e.preventDefault();
@@ -34,101 +33,104 @@ export default function ActivityLog({ token }) {
       });
       setMsg("Saved!");
       load();
+      setTimeout(() => setMsg(""), 2000);
     } catch (e) { setMsg(e.message); }
   }
 
+  const typeColors = {
+    walk: "bg-pm-accent/15 text-pm-accent ring-pm-accent/20",
+    run: "bg-pm-cyan/15 text-pm-cyan ring-pm-cyan/20",
+    gym: "bg-pm-purple/15 text-pm-purple ring-pm-purple/20",
+  };
+
   return (
-    <div
-      style={{ maxWidth: 700, margin: "20px auto", padding: 12 }}
-      className="rounded-2xl bg-white/95 p-6 shadow-xl ring-1 ring-slate-200/70 backdrop-blur-sm"
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-          <span className="bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-            Log Activity
-          </span>
+    <div className="mx-auto max-w-3xl space-y-6">
+      {/* Form card */}
+      <div className="glass-card p-6">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-pm-accent">
+          Activity Tracker
+        </p>
+        <h2 className="mt-1 text-2xl font-bold text-white">
+          Log Activity
         </h2>
+
+        <form onSubmit={submit} className="mt-5 grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Date</label>
+            <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="pm-input" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Minutes</label>
+            <input type="number" placeholder="30" value={minutes} onChange={e=>setMinutes(e.target.value)} className="pm-input" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Steps (optional)</label>
+            <input type="number" placeholder="5000" value={steps} onChange={e=>setSteps(e.target.value)} className="pm-input" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Type</label>
+            <input placeholder="walk / run / gym…" value={type} onChange={e=>setType(e.target.value)} className="pm-input" />
+          </div>
+          <div className="col-span-2 mt-1">
+            <button className="pm-btn w-full">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Save Activity
+            </button>
+          </div>
+        </form>
+
+        {msg && (
+          <div className={`mt-3 rounded-xl px-4 py-2.5 text-sm ring-1 animate-slide-up ${
+            msg === "Saved!"
+              ? "bg-pm-accent/10 text-pm-accent ring-pm-accent/20"
+              : "bg-red-500/10 text-red-400 ring-red-500/20"
+          }`}>
+            {msg}
+          </div>
+        )}
       </div>
 
-      <form
-        onSubmit={submit}
-        style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}
-        className="gap-3"
-      >
-        <input
-          type="date"
-          value={date}
-          onChange={e=>setDate(e.target.value)}
-          className="w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2 text-slate-900 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
-        />
-        <input
-          type="number"
-          placeholder="minutes"
-          value={minutes}
-          onChange={e=>setMinutes(e.target.value)}
-          className="w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2 text-slate-900 placeholder-slate-400 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
-        />
-        <input
-          type="number"
-          placeholder="steps (optional)"
-          value={steps}
-          onChange={e=>setSteps(e.target.value)}
-          className="w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2 text-slate-900 placeholder-slate-400 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
-        />
-        <input
-          placeholder="type (walk/run/gym...)"
-          value={type}
-          onChange={e=>setType(e.target.value)}
-          className="w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2 text-slate-900 placeholder-slate-400 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
-        />
-        <button
-          style={{ gridColumn: "1 / -1" }}
-          className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 px-4 py-2 font-medium text-white shadow-md transition hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          Save
-        </button>
-      </form>
+      {/* History */}
+      <div className="glass-card p-6">
+        <h3 className="text-lg font-bold text-white">Recent Activity</h3>
 
-      {msg && (
-        <p className="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 shadow-sm">
-          {msg}
-        </p>
-      )}
-
-      <h3 className="mt-6 text-lg font-semibold text-slate-900">Recent</h3>
-
-      <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-slate-700">Date</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-slate-700">Minutes</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-slate-700">Steps</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-slate-700">Type</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {logs.map((r, i) => (
-              <tr key={i} className="hover:bg-slate-50/60">
-                <td className="px-4 py-2 text-sm text-slate-800">{r.dateISO || r.date}</td>
-                <td className="px-4 py-2 text-sm text-slate-800">{r.minutes}</td>
-                <td className="px-4 py-2 text-sm text-slate-800">{r.steps ?? ""}</td>
-                <td className="px-4 py-2 text-sm">
-                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
-                    {r.type ?? ""}
-                  </span>
-                </td>
+        <div className="mt-4 overflow-hidden rounded-xl ring-1 ring-white/[0.06]">
+          <table className="min-w-full divide-y divide-white/[0.06]">
+            <thead>
+              <tr className="bg-white/[0.02]">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Minutes</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Steps</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Type</th>
               </tr>
-            ))}
-            {logs.length === 0 && (
-              <tr>
-                <td className="px-4 py-6 text-sm text-slate-500" colSpan={4}>
-                  No activity logged yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04]">
+              {logs.map((r, i) => (
+                <tr key={i} className="transition-colors hover:bg-white/[0.03]">
+                  <td className="px-4 py-3 text-sm text-slate-300">{r.dateISO || r.date}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-white">{r.minutes}</td>
+                  <td className="px-4 py-3 text-sm text-slate-300">{r.steps ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${
+                      typeColors[r.type] || "bg-white/5 text-slate-400 ring-white/10"
+                    }`}>
+                      {r.type ?? "—"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {logs.length === 0 && (
+                <tr>
+                  <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={4}>
+                    No activity logged yet. Start tracking above!
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

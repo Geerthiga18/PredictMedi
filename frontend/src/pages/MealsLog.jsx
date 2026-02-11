@@ -1,24 +1,19 @@
-// frontend/src/pages/MealsLog.jsx
 import { useEffect, useState } from "react";
 import FoodSearch from "../components/FoodSearch";
 import { api } from "../lib/api";
 
-const card = "rounded-2xl bg-white/95 p-5 shadow-xl ring-1 ring-slate-200/70 backdrop-blur-sm";
-const input = "w-24 rounded-lg border border-slate-300/80 bg-slate-50 px-2 py-1 text-slate-900 placeholder-slate-400 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500";
-
 export default function MealsLog({ token }) {
   const [today, setToday] = useState(() => new Date().toISOString().slice(0,10));
-  const [items, setItems] = useState([]); // {desc, grams, kcal, protein_g, carb_g, fat_g, ...}
-  const [picked, setPicked] = useState(null); // from FoodSearch
+  const [items, setItems] = useState([]);
+  const [picked, setPicked] = useState(null);
   const [grams, setGrams] = useState("");
   const [msg, setMsg] = useState("");
 
- useEffect(() => { 
-  if (!token) return;
-  load(); 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [today, token]);
-
+  useEffect(() => {
+    if (!token) return;
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today, token]);
 
   async function load() {
     try {
@@ -32,7 +27,7 @@ export default function MealsLog({ token }) {
     const g = Number(grams) || (picked.serving?.unit?.toLowerCase()==="g" ? picked.serving.amount : 100);
     const scale = (() => {
       const amt = Number(picked.serving?.amount || 100);
-      return (picked.serving?.unit?.toLowerCase() === "g" && amt > 0) ? (g / amt) : 1; // assume 1 serving otherwise
+      return (picked.serving?.unit?.toLowerCase() === "g" && amt > 0) ? (g / amt) : 1;
     })();
 
     const m = picked.macros || {};
@@ -71,7 +66,7 @@ export default function MealsLog({ token }) {
       };
       await api("/meals/log", { method:"POST", token, body: payload });
       setMsg("Saved!");
-      setTimeout(()=>setMsg(""), 1500);
+      setTimeout(()=>setMsg(""), 2000);
     } catch (e) {
       setMsg(e.message || "Save failed");
     }
@@ -80,118 +75,117 @@ export default function MealsLog({ token }) {
   function remove(i) { setItems(prev => prev.filter((_,idx)=>idx!==i)); }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className={card}>
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-xl font-semibold tracking-tight text-slate-900">
-            <span className="bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-              Meals for
+    <div className="mx-auto max-w-4xl space-y-6">
+      {/* Header */}
+      <div className="glass-card p-5 flex flex-wrap items-center gap-4">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-pm-accent">Nutrition</p>
+          <h2 className="text-xl font-bold text-white">Meals for</h2>
+        </div>
+        <input
+          type="date"
+          className="pm-input w-auto"
+          value={today}
+          onChange={e=>setToday(e.target.value)}
+        />
+        <div className="ml-auto">
+          {msg && (
+            <span className={`rounded-full px-3 py-1.5 text-sm font-medium ring-1 animate-slide-up ${
+              msg === "Saved!"
+                ? "bg-pm-accent/10 text-pm-accent ring-pm-accent/20"
+                : "bg-red-500/10 text-red-400 ring-red-500/20"
+            }`}>
+              {msg}
             </span>
-          </h2>
-          <input
-            type="date"
-            className="rounded-lg border border-slate-300/80 bg-slate-50 px-2 py-1 text-slate-900 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
-            value={today}
-            onChange={e=>setToday(e.target.value)}
-          />
-          <div className="ml-auto">
-            {msg && (
-              <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm text-emerald-700 shadow-sm">
-                {msg}
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
       {/* Picker */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className={card}>
-          <h3 className="text-base font-semibold text-slate-900">Search food</h3>
-          <p className="mt-1 text-sm text-slate-500">Find items and pick a serving.</p>
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="glass-card p-5">
+          <h3 className="font-semibold text-white">Search Food</h3>
+          <p className="mt-1 text-sm text-slate-400">Find items and pick a serving.</p>
           <div className="mt-3">
             <FoodSearch onSelect={(item)=>setPicked(item)} />
           </div>
         </div>
 
-        <div className={card}>
-          <h3 className="text-base font-semibold text-slate-900">Add selected</h3>
-          {!picked && <p className="mt-2 text-sm text-slate-500">Choose a food on the left.</p>}
+        <div className="glass-card p-5">
+          <h3 className="font-semibold text-white">Add Selected</h3>
+          {!picked && <p className="mt-3 text-sm text-slate-500">Choose a food on the left.</p>}
           {picked && (
-            <>
-              <p className="mt-2 text-slate-800">{picked.description}</p>
-              <p className="text-sm text-slate-500">
+            <div className="mt-3 space-y-3 animate-fade-in">
+              <p className="text-sm font-medium text-white">{picked.description}</p>
+              <p className="text-xs text-slate-400">
                 Default serving: {picked.serving?.amount} {picked.serving?.unit}
               </p>
-              <div className="mt-3 flex items-end gap-2">
-                <label className="text-sm text-slate-700">
-                  Grams
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Grams</label>
                   <input
-                    className={input}
+                    className="pm-input"
                     type="number"
                     min="0"
                     step="1"
                     value={grams}
                     onChange={e=>setGrams(e.target.value)}
-                    placeholder={picked.serving?.unit?.toLowerCase()==="g" ? picked.serving.amount : "100"}
+                    placeholder={picked.serving?.unit?.toLowerCase()==="g" ? String(picked.serving.amount) : "100"}
                   />
-                </label>
-                <button
-                  onClick={addPicked}
-                  className="rounded-lg bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 px-3 py-2 text-white shadow-md transition hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
+                </div>
+                <button onClick={addPicked} className="pm-btn">
                   Add
                 </button>
               </div>
               <MacroPreview macros={picked.macros} />
-            </>
+            </div>
           )}
         </div>
       </div>
 
       {/* Day list */}
-      <div className={card}>
+      <div className="glass-card p-5">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-slate-900">Logged items</h3>
-          <button
-            onClick={saveDay}
-            className="rounded-lg bg-emerald-600 px-3 py-2 text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-          >
+          <h3 className="font-semibold text-white">Logged Items</h3>
+          <button onClick={saveDay} className="pm-btn">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
             Save Day
           </button>
         </div>
 
-        {!items.length && <p className="mt-3 text-sm text-slate-500">No items yet.</p>}
+        {!items.length && <p className="mt-4 text-sm text-slate-500">No items yet.</p>}
 
         {!!items.length && (
-          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 font-semibold text-slate-700">Food</th>
-                  <th className="px-4 py-2 font-semibold text-slate-700">g</th>
-                  <th className="px-4 py-2 font-semibold text-slate-700">kcal</th>
-                  <th className="px-4 py-2 font-semibold text-slate-700">Carb</th>
-                  <th className="px-4 py-2 font-semibold text-slate-700">Protein</th>
-                  <th className="px-4 py-2 font-semibold text-slate-700">Fat</th>
-                  <th className="px-4 py-2"></th>
+          <div className="mt-4 overflow-x-auto rounded-xl ring-1 ring-white/[0.06]">
+            <table className="min-w-full divide-y divide-white/[0.06] text-left text-sm">
+              <thead>
+                <tr className="bg-white/[0.02]">
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Food</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">g</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">kcal</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Carb</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Protein</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Fat</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-white/[0.04]">
                 {items.map((x,i)=>(
-                  <tr key={i} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2 text-slate-800">{x.desc}</td>
-                    <td className="px-4 py-2 text-slate-800">{x.grams}</td>
-                    <td className="px-4 py-2 text-slate-800">{fmt(x.kcal)}</td>
-                    <td className="px-4 py-2 text-slate-800">{fmt(x.carb_g)}g</td>
-                    <td className="px-4 py-2 text-slate-800">{fmt(x.protein_g)}g</td>
-                    <td className="px-4 py-2 text-slate-800">{fmt(x.fat_g)}g</td>
-                    <td className="px-4 py-2">
+                  <tr key={i} className="transition-colors hover:bg-white/[0.03]">
+                    <td className="px-4 py-3 text-sm text-white font-medium">{x.desc}</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{x.grams}</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{fmt(x.kcal)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{fmt(x.carb_g)}g</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{fmt(x.protein_g)}g</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{fmt(x.fat_g)}g</td>
+                    <td className="px-4 py-3">
                       <button
                         onClick={()=>remove(i)}
-                        className="rounded-md px-2 py-1 text-sm font-medium text-red-700 hover:bg-red-50 hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-400/40"
+                        className="rounded-lg px-2.5 py-1 text-xs font-medium text-red-400 transition hover:bg-red-500/10 hover:text-red-300"
                       >
-                        remove
+                        Remove
                       </button>
                     </td>
                   </tr>
@@ -207,15 +201,22 @@ export default function MealsLog({ token }) {
 
 function MacroPreview({ macros }) {
   if (!macros) return null;
-  const box = "rounded-lg bg-slate-50 px-3 py-2 shadow-sm ring-1 ring-slate-100";
+  const items = [
+    { label: "kcal", value: fmt(macros.kcal), color: "text-pm-cyan" },
+    { label: "Carb", value: `${fmt(macros.carb_g)}g`, color: "text-amber-400" },
+    { label: "Protein", value: `${fmt(macros.protein_g)}g`, color: "text-pm-purple" },
+    { label: "Fat", value: `${fmt(macros.fat_g)}g`, color: "text-rose-400" },
+    { label: "Fiber", value: `${fmt(macros.fiber_g)}g`, color: "text-pm-accent" },
+    { label: "Sugar", value: `${fmt(macros.sugar_g)}g`, color: "text-orange-400" },
+  ];
   return (
-    <div className="mt-3 grid grid-cols-3 gap-2 text-sm text-slate-700">
-      <div className={box}>kcal <b>{fmt(macros.kcal)}</b></div>
-      <div className={box}>Carb <b>{fmt(macros.carb_g)} g</b></div>
-      <div className={box}>Protein <b>{fmt(macros.protein_g)} g</b></div>
-      <div className={box}>Fat <b>{fmt(macros.fat_g)} g</b></div>
-      <div className={box}>Fiber <b>{fmt(macros.fiber_g)} g</b></div>
-      <div className={box}>Sugar <b>{fmt(macros.sugar_g)} g</b></div>
+    <div className="grid grid-cols-3 gap-2">
+      {items.map(item => (
+        <div key={item.label} className="rounded-lg bg-white/[0.03] px-3 py-2 text-center ring-1 ring-white/[0.06]">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">{item.label}</div>
+          <div className={`text-sm font-semibold ${item.color}`}>{item.value}</div>
+        </div>
+      ))}
     </div>
   );
 }

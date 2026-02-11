@@ -1,82 +1,25 @@
 import { useState } from "react";
 import { api } from "../lib/api";
 
-const field =
-  "block text-sm md:text-base font-medium text-slate-800";
-const input =
-  "mt-1 w-full rounded-xl border border-slate-300/80 bg-slate-50 px-3 py-2.5 text-sm md:text-base text-slate-900 placeholder-slate-400 shadow-sm transition hover:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:border-blue-500";
-const btnPrimary =
-  "inline-flex items-center rounded-xl bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 px-5 py-2.5 text-sm md:text-base font-semibold text-white shadow-md transition hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2";
-const card =
-  "mx-auto max-w-5xl rounded-3xl bg-white/98 px-5 py-6 md:px-7 md:py-7 shadow-[0_18px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-200/80 backdrop-blur-sm";
-
 const YES_NO = [
   { label: "No", value: 0 },
   { label: "Yes", value: 1 },
 ];
 
-const SEX = [
-  [0, "Female"],
-  [1, "Male"],
-];
-
-const CP = [
-  [0, "Typical angina"],
-  [1, "Atypical angina"],
-  [2, "Non-anginal chest pain"],
-  [3, "No chest pain (asymptomatic)"],
-];
-
-const RESTECG = [
-  [0, "Normal ECG"],
-  [1, "ST–T wave abnormality"],
-  [2, "Left ventricular hypertrophy"],
-];
-
-const SLOPE = [
-  [0, "Upsloping"],
-  [1, "Flat"],
-  [2, "Downsloping"],
-];
-
-const THAL = [
-  [1, "Normal"],
-  [2, "Fixed defect"],
-  [3, "Reversible defect"],
-];
+const SEX = [[0, "Female"], [1, "Male"]];
+const CP = [[0, "Typical angina"], [1, "Atypical angina"], [2, "Non-anginal chest pain"], [3, "No chest pain (asymptomatic)"]];
+const RESTECG = [[0, "Normal ECG"], [1, "ST–T wave abnormality"], [2, "Left ventricular hypertrophy"]];
+const SLOPE = [[0, "Upsloping"], [1, "Flat"], [2, "Downsloping"]];
+const THAL = [[1, "Normal"], [2, "Fixed defect"], [3, "Reversible defect"]];
 
 function riskBand(p) {
   if (p >= 0.7)
-    return {
-      label: "Very high chance",
-      bg: "bg-red-50",
-      text: "text-red-800",
-      ring: "ring-red-200",
-      bar: "bg-red-500",
-    };
+    return { label: "Very high chance", bg: "bg-red-500/10", text: "text-red-400", ring: "ring-red-500/20", bar: "bg-red-500" };
   if (p >= 0.5)
-    return {
-      label: "High chance",
-      bg: "bg-orange-50",
-      text: "text-orange-800",
-      ring: "ring-orange-200",
-      bar: "bg-orange-500",
-    };
+    return { label: "High chance", bg: "bg-orange-500/10", text: "text-orange-400", ring: "ring-orange-500/20", bar: "bg-orange-500" };
   if (p >= 0.2)
-    return {
-      label: "Moderate chance",
-      bg: "bg-amber-50",
-      text: "text-amber-800",
-      ring: "ring-amber-200",
-      bar: "bg-amber-500",
-    };
-  return {
-    label: "Low chance",
-    bg: "bg-emerald-50",
-    text: "text-emerald-800",
-    ring: "ring-emerald-200",
-    bar: "bg-emerald-500",
-  };
+    return { label: "Moderate chance", bg: "bg-amber-500/10", text: "text-amber-400", ring: "ring-amber-500/20", bar: "bg-amber-500" };
+  return { label: "Low chance", bg: "bg-pm-accent/10", text: "text-pm-accent", ring: "ring-pm-accent/20", bar: "bg-pm-accent" };
 }
 
 function adviceText(p) {
@@ -89,21 +32,32 @@ function adviceText(p) {
   return "Current pattern suggests lower risk. Keep up healthy habits and review if symptoms or risk factors change.";
 }
 
+function Toggle({ name, options, value, onChange }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {options.map((o) => (
+        <button
+          key={name + o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            value === o.value
+              ? "bg-pm-accent/15 text-pm-accent ring-1 ring-pm-accent/30"
+              : "bg-white/5 text-slate-400 hover:bg-white/8 ring-1 ring-white/[0.06]"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function HeartCheck({ token }) {
   const [f, setF] = useState({
-    age: 52,
-    sex: 1,
-    cp: 2,
-    trestbps: 130,
-    chol: 220,
-    fbs: 0,
-    restecg: 0,
-    thalach: 160,
-    exang: 0,
-    oldpeak: 1.0,
-    slope: 1,
-    ca: 0,
-    thal: 2,
+    age: 52, sex: 1, cp: 2, trestbps: 130, chol: 220,
+    fbs: 0, restecg: 0, thalach: 160, exang: 0,
+    oldpeak: 1.0, slope: 1, ca: 0, thal: 2,
   });
 
   const [res, setRes] = useState(null);
@@ -114,329 +68,198 @@ export default function HeartCheck({ token }) {
 
   async function submit(e) {
     e.preventDefault();
-    setErr("");
-    setRes(null);
-    setLoading(true);
+    setErr(""); setRes(null); setLoading(true);
     try {
-      const out = await api("/ml/heart/predict", {
-        method: "POST",
-        token,
-        body: { features: f, top_k: 5 },
-      });
+      const out = await api("/ml/heart/predict", { method: "POST", token, body: { features: f, top_k: 5 } });
       setRes(out);
     } catch (e) {
       setErr(e.message || "Prediction failed");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
-  const prob =
-    typeof res?.probability === "number" ? res.probability : null;
+  const prob = typeof res?.probability === "number" ? res.probability : null;
   const band = prob != null ? riskBand(prob) : null;
 
   return (
-    <div className={card}>
+    <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1 border-b border-slate-100 pb-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-500">
-          Risk tools
+      <div className="glass-card p-6">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-rose-400">
+          Risk Tools
         </p>
-        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">
+        <h2 className="mt-1 text-2xl md:text-3xl font-bold text-white">
           Heart Disease Risk Checker
         </h2>
-        <p className="text-sm md:text-base text-slate-600">
+        <p className="mt-2 text-sm text-slate-400">
           Enter basic clinical details to see an estimated risk based on the
           UCI Heart dataset model. This is only a decision support tool.
         </p>
       </div>
 
       {/* Form */}
-      <form
-        onSubmit={submit}
-        className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2"
-      >
-        <label className={field}>
-          Age (years)
-          <input
-            className={input}
-            type="number"
-            min={18}
-            max={95}
-            value={f.age}
-            onChange={(e) => set("age", Number(e.target.value || 0))}
-          />
-        </label>
-
-        <label className={field}>
-          Sex
-          <select
-            className={input}
-            value={f.sex}
-            onChange={(e) => set("sex", Number(e.target.value))}
-          >
-            {SEX.map(([v, t]) => (
-              <option key={v} value={v}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={field}>
-          Chest pain type
-          <select
-            className={input}
-            value={f.cp}
-            onChange={(e) => set("cp", Number(e.target.value))}
-          >
-            {CP.map(([v, t]) => (
-              <option key={v} value={v}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={field}>
-          Resting blood pressure (mmHg)
-          <input
-            className={input}
-            type="number"
-            min={70}
-            max={250}
-            value={f.trestbps}
-            onChange={(e) =>
-              set("trestbps", Number(e.target.value || 0))
-            }
-          />
-        </label>
-
-        <label className={field}>
-          Cholesterol (mg/dL)
-          <input
-            className={input}
-            type="number"
-            min={100}
-            max={700}
-            value={f.chol}
-            onChange={(e) =>
-              set("chol", Number(e.target.value || 0))
-            }
-          />
-        </label>
-
-        <fieldset className={field}>
-          Fasting blood sugar &gt; 120 mg/dL?
-          <div className="mt-1 flex flex-wrap gap-3 text-sm">
-            {YES_NO.map((o) => (
-              <label
-                key={"fbs" + o.value}
-                className="inline-flex items-center gap-1.5"
-              >
-                <input
-                  type="radio"
-                  name="fbs"
-                  checked={f.fbs === o.value}
-                  onChange={() => set("fbs", o.value)}
-                />
-                <span>{o.label}</span>
-              </label>
-            ))}
+      <div className="glass-card p-6">
+        <form onSubmit={submit} className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Age (years)</label>
+            <input className="pm-input" type="number" min={18} max={95} value={f.age} onChange={(e) => set("age", Number(e.target.value || 0))} />
           </div>
-        </fieldset>
 
-        <label className={field}>
-          Resting ECG
-          <select
-            className={input}
-            value={f.restecg}
-            onChange={(e) =>
-              set("restecg", Number(e.target.value))
-            }
-          >
-            {RESTECG.map(([v, t]) => (
-              <option key={v} value={v}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={field}>
-          Max heart rate (bpm)
-          <input
-            className={input}
-            type="number"
-            min={60}
-            max={230}
-            value={f.thalach}
-            onChange={(e) =>
-              set("thalach", Number(e.target.value || 0))
-            }
-          />
-        </label>
-
-        <fieldset className={field}>
-          Exercise-induced chest pain?
-          <div className="mt-1 flex flex-wrap gap-3 text-sm">
-            {YES_NO.map((o) => (
-              <label
-                key={"exang" + o.value}
-                className="inline-flex items-center gap-1.5"
-              >
-                <input
-                  type="radio"
-                  name="exang"
-                  checked={f.exang === o.value}
-                  onChange={() => set("exang", o.value)}
-                />
-                <span>{o.label}</span>
-              </label>
-            ))}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Sex</label>
+            <select className="pm-input" value={f.sex} onChange={(e) => set("sex", Number(e.target.value))}>
+              {SEX.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+            </select>
           </div>
-        </fieldset>
 
-        <label className={field}>
-          ST depression vs rest (oldpeak)
-          <input
-            className={input}
-            type="number"
-            step="0.1"
-            min={0}
-            max={10}
-            value={f.oldpeak}
-            onChange={(e) =>
-              set("oldpeak", Number(e.target.value || 0))
-            }
-          />
-        </label>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Chest Pain Type</label>
+            <select className="pm-input" value={f.cp} onChange={(e) => set("cp", Number(e.target.value))}>
+              {CP.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+            </select>
+          </div>
 
-        <label className={field}>
-          ST segment slope
-          <select
-            className={input}
-            value={f.slope}
-            onChange={(e) =>
-              set("slope", Number(e.target.value))
-            }
-          >
-            {SLOPE.map(([v, t]) => (
-              <option key={v} value={v}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Resting BP (mmHg)</label>
+            <input className="pm-input" type="number" min={70} max={250} value={f.trestbps} onChange={(e) => set("trestbps", Number(e.target.value || 0))} />
+          </div>
 
-        <label className={field}>
-          # vessels by fluoroscopy (0–3)
-          <input
-            className={input}
-            type="number"
-            min={0}
-            max={3}
-            value={f.ca}
-            onChange={(e) =>
-              set("ca", Number(e.target.value || 0))
-            }
-          />
-        </label>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Cholesterol (mg/dL)</label>
+            <input className="pm-input" type="number" min={100} max={700} value={f.chol} onChange={(e) => set("chol", Number(e.target.value || 0))} />
+          </div>
 
-        <label className={field}>
-          Thallium test (thal)
-          <select
-            className={input}
-            value={f.thal}
-            onChange={(e) =>
-              set("thal", Number(e.target.value))
-            }
-          >
-            {THAL.map(([v, t]) => (
-              <option key={v} value={v}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
+          <div>
+            <label className="block text-xs font-medium uppercase tracking-wider text-slate-400">Fasting blood sugar &gt; 120 mg/dL?</label>
+            <Toggle name="fbs" options={YES_NO} value={f.fbs} onChange={(v) => set("fbs", v)} />
+          </div>
 
-        <div className="md:col-span-2 mt-2">
-          <button className={btnPrimary} disabled={loading}>
-            {loading ? "Predicting..." : "Predict heart risk"}
-          </button>
-        </div>
-      </form>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Resting ECG</label>
+            <select className="pm-input" value={f.restecg} onChange={(e) => set("restecg", Number(e.target.value))}>
+              {RESTECG.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Max Heart Rate (bpm)</label>
+            <input className="pm-input" type="number" min={60} max={230} value={f.thalach} onChange={(e) => set("thalach", Number(e.target.value || 0))} />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium uppercase tracking-wider text-slate-400">Exercise-induced chest pain?</label>
+            <Toggle name="exang" options={YES_NO} value={f.exang} onChange={(v) => set("exang", v)} />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">ST Depression (oldpeak)</label>
+            <input className="pm-input" type="number" step="0.1" min={0} max={10} value={f.oldpeak} onChange={(e) => set("oldpeak", Number(e.target.value || 0))} />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">ST Segment Slope</label>
+            <select className="pm-input" value={f.slope} onChange={(e) => set("slope", Number(e.target.value))}>
+              {SLOPE.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400"># Vessels by Fluoroscopy (0–3)</label>
+            <input className="pm-input" type="number" min={0} max={3} value={f.ca} onChange={(e) => set("ca", Number(e.target.value || 0))} />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">Thallium Test (thal)</label>
+            <select className="pm-input" value={f.thal} onChange={(e) => set("thal", Number(e.target.value))}>
+              {THAL.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+            </select>
+          </div>
+
+          <div className="md:col-span-2 mt-1">
+            <button className="pm-btn" disabled={loading}>
+              {loading ? (
+                <><span className="h-4 w-4 animate-spin rounded-full border-2 border-pm-dark/30 border-t-pm-dark" /> Predicting…</>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  Predict Heart Risk
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
 
       {err && (
-        <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm md:text-base text-red-700 shadow-sm">
+        <div className="glass-card p-4 bg-red-500/5 text-sm text-red-400 ring-1 ring-red-500/15 animate-slide-up">
           {err}
-        </p>
+        </div>
       )}
 
+      {/* Result */}
       {prob != null && band && (
-        <div
-          className={`mt-5 rounded-2xl p-4 md:p-5 ring-1 ${band.bg} ${band.text} ${band.ring}`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-base md:text-lg font-semibold">
-              {band.label}
-            </p>
-            <p className="text-sm md:text-base font-semibold">
-              {(prob * 100).toFixed(1)}%
-              <span className="ml-1 text-xs md:text-sm opacity-70">
-                (model estimate)
-              </span>
-            </p>
+        <div className={`glass-card p-6 ${band.bg} ring-1 ${band.ring} animate-slide-up`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className={`text-lg font-bold ${band.text}`}>{band.label}</p>
+              <p className="text-sm text-slate-400 mt-1">
+                {(prob * 100).toFixed(1)}% <span className="text-xs opacity-70">(model estimate)</span>
+              </p>
+            </div>
           </div>
-          <div className="mt-3 h-2.5 w-full rounded-full bg-white/60">
+
+          {/* Probability bar */}
+          <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-white/5">
             <div
-              className={`h-2.5 rounded-full ${band.bar}`}
-              style={{
-                width: `${Math.max(
-                  4,
-                  Math.min(96, prob * 100)
-                )}%`,
-              }}
+              className={`h-3 rounded-full ${band.bar} animate-bar-fill`}
+              style={{ "--bar-width": `${Math.max(4, Math.min(96, prob * 100))}%`, width: `${Math.max(4, Math.min(96, prob * 100))}%` }}
             />
           </div>
-          <p className="mt-3 text-sm md:text-base text-slate-800">
-            {adviceText(prob)}
-          </p>
-          <p className="mt-1 text-[10px] md:text-xs text-slate-600">
-            This tool does not diagnose. Always correlate with symptoms,
-            ECG, labs, and clinical judgment.
+
+          <p className="mt-4 text-sm text-slate-300">{adviceText(prob)}</p>
+          <p className="mt-2 text-[10px] text-slate-500">
+            This tool does not diagnose. Always correlate with symptoms, ECG, labs, and clinical judgment.
           </p>
         </div>
       )}
 
+      {/* Contributing factors */}
       {res?.top_factors?.length ? (
-        <div className="mt-4 rounded-2xl bg-indigo-50/90 p-4 md:p-5 ring-1 ring-indigo-100">
-          <h3 className="text-base md:text-lg font-semibold text-slate-900">
-            Top contributing factors
+        <div className="glass-card p-6 animate-slide-up">
+          <h3 className="text-lg font-bold text-white mb-4">
+            Top Contributing Factors
           </h3>
-          <ul className="mt-2 space-y-1.5">
-            {res.top_factors.map((t, i) => (
-              <li
-                key={i}
-                className="text-xs md:text-sm text-slate-800"
-              >
-                <code className="rounded bg-white px-1.5 py-0.5 text-slate-700 ring-1 ring-slate-200">
-                  {t.feature}
-                </code>
-                <span className="ml-2">
-                  contribution{" "}
-                  <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                    {Number(t.contribution).toFixed(3)}
-                  </span>{" "}
-                  (z={Number(t.zvalue).toFixed(3)})
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-3 stagger-children">
+            {res.top_factors.map((t, i) => {
+              const maxContrib = Math.max(...res.top_factors.map(f => Math.abs(f.contribution)));
+              const barWidth = maxContrib > 0 ? (Math.abs(t.contribution) / maxContrib) * 100 : 0;
+              return (
+                <div key={i} className="animate-slide-in-right">
+                  <div className="flex items-center justify-between text-sm mb-1.5">
+                    <code className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-slate-300 ring-1 ring-white/[0.06]">
+                      {t.feature}
+                    </code>
+                    <span className="text-xs text-slate-400">
+                      contribution{" "}
+                      <span className="font-semibold text-pm-accent">{Number(t.contribution).toFixed(3)}</span>
+                      <span className="ml-1 text-slate-500">(z={Number(t.zvalue).toFixed(3)})</span>
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-white/5">
+                    <div
+                      className="h-2 rounded-full bg-gradient-to-r from-pm-accent to-pm-cyan animate-bar-fill"
+                      style={{ "--bar-width": `${barWidth}%`, width: `${barWidth}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         res && (
-          <p className="mt-4 text-xs md:text-sm text-slate-600">
+          <p className="text-xs text-slate-500 text-center">
             No explanation details available for this prediction.
           </p>
         )
