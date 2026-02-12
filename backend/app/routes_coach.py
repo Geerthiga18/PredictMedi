@@ -5,6 +5,24 @@ from .reco import activity_level_from_minutes, plan, adherence_score
 from datetime import date as _date, timedelta
 from collections import defaultdict
 
+# Dynamic goal logic
+def get_activity_goal(user: dict) -> int:
+    # 1. Start with requested base of 45 mins
+    goal = 45
+    
+    # 2. Adjust for age (older adults might need slightly less intensity but duration is good, 
+    #    so let's keep it simple: reduce to 30 if age > 65)
+    age = user.get("age")
+    if age and age > 65:
+        goal = 30
+        
+    # 3. Adjust for goal
+    user_goal = (user.get("goal") or "maintain").lower()
+    if user_goal == "lose":
+        goal += 15  # 60 mins for weight loss
+        
+    return goal
+
 router = APIRouter(prefix="/coach", tags=["coach"])
 
 @router.get("/plan")
@@ -21,8 +39,9 @@ async def coach_plan(
 
 @router.get("/tips")
 async def coach_tips(activity_minutes: int = 30, sugar_g_today: float = 0.0, user=Depends(get_current_user)):
+    target = get_activity_goal(user)
     tips = []
-    if activity_minutes < 30: tips.append("Try to reach 30+ minutes of movement today. A short brisk walk counts!")
+    if activity_minutes < target: tips.append(f"Try to reach {target}+ minutes of movement today. A short brisk walk counts!")
     if sugar_g_today > 50: tips.append("Today’s sugar is high. Swap sweet drinks for water/unsweetened tea.")
     if not tips: tips.append("Great job keeping a healthy routine! 🎉 Keep it up.")
     return {"tips": tips}
@@ -33,14 +52,37 @@ async def coach_motivate(dateISO: str = Query(default=None), goal: str = "mainta
     dateISO = dateISO or date.today().isoformat()
 
     # Sum activity minutes
+    # Sum activity minutes and calories
+    # We now store kcal in the activity document. If missing, we could calc on fly, 
+    # but let's assume `routes_activity` handles the writing.
+    # We'll re-import the calc function just in case we need a fallback for old data?
+    # Actually simpler to just trust what we have or do a rough fallback.
     mins = 0
+    burned_kcal = 0.0
+    
+    # helper for fallback calc if needed
+    from .routes_activity import kcal_for_activity
+    weight = user.get("weightKg")
+    
     async for a in activity.find({"userId": user["id"], "dateISO": dateISO}):
         v = a.get("minutes") or a.get("durationMin") or 0
-        if isinstance(v, (int,float)): mins += v
+        if isinstance(v, (int,float)): 
+            mins += v
+            # Get stored kcal or calc
+            k = a.get("kcal")
+            if k is None:
+                t = (a.get("type") or "walk").lower()
+                k = kcal_for_activity(t, int(v), weight)
+            burned_kcal += float(k)
 
-    # Build plan for the user's inferred activity level
+    # Build plan
     act_level = activity_level_from_minutes(mins)
     p = plan(user, act_level, goal)
+    
+    # Update activity target in plan if needed? 
+    # The 'plan' function likely returns macros. We can inject our dynamic target here if the frontend needs it.
+    # But `CoachCard` computes percentage. We should return the dynamic target explicitly.
+    activity_target = get_activity_goal(user)
 
     # Sum today's nutrition
     totals = {"kcal":0,"carb_g":0,"protein_g":0,"fat_g":0,"fiber_g":0,"sugar_g":0,"sodium_mg":0}
@@ -51,10 +93,19 @@ async def coach_motivate(dateISO: str = Query(default=None), goal: str = "mainta
                 if isinstance(v, (int,float)): totals[k] += v
 
     score, messages = adherence_score(p["macros"], totals, mins)
+    
+    # We'll calculate net calories = Intake - Burned
+    # But for "Net", usually it means Intake - Burned. 
+    # The user request: "from the calorie we take we will burn some calories so we can finalize our calorie intake"
+    # This usually means Net = Intake - Exercise.
+    # We'll pass `burned_kcal` and `net_kcal` to frontend.
+    
     return {
         "dateISO": dateISO,
         "activity_level": act_level,
         "minutes": mins,
+        "activity_target": activity_target, # NEW
+        "burned_kcal": round(burned_kcal),  # NEW
         "plan": p,
         "nutrition_totals": totals,
         "score": score,
@@ -141,11 +192,21 @@ async def coach_weekly(
                     totals[k] += v
 
         # sum activity minutes
+        # sum activity minutes & calories
         mins = 0
+        burned = 0.0
+        from .routes_activity import kcal_for_activity
+        w = user.get("weightKg")
+        
         for a in acts_by_day.get(d, []):
             v = a.get("minutes") or a.get("durationMin") or 0
             if isinstance(v, (int,float)):
                 mins += v
+                k = a.get("kcal")
+                if k is None:
+                    t = (a.get("type") or "walk").lower()
+                    k = kcal_for_activity(t, int(v), w)
+                burned += float(k)
 
         if totals["kcal"] > 0 or mins > 0:
             days_with_data += 1
@@ -184,7 +245,7 @@ async def coach_weekly(
     avg_minutes = round(total_minutes / days_with_data)
     base_plan = plan(user, "light", goal)
     target_kcal = base_plan["macros"]["kcal"]
-    target_minutes = 30
+    target_minutes = get_activity_goal(user) # Use dynamic goal
 
     good_days = sum(1 for d in day_rows if d["score"] >= 70)
     bad_days = days_with_data - good_days

@@ -65,11 +65,11 @@ export default function CoachCard({ token, dateISO, refreshKey = 0 }) {
   };
 
   const stats = [
-    buildStat("Calories", totals.kcal, macros.kcal || plan.tdee),
+    buildStat("Calories Intake", totals.kcal, macros.kcal || plan.tdee),
     buildStat("Carbs (g)", totals.carb_g, macros.carb_g),
     buildStat("Protein (g)", totals.protein_g, macros.protein_g),
     buildStat("Fat (g)", totals.fat_g, macros.fat_g),
-    buildStat("Activity (min)", minutes, 30),
+    buildStat("Activity (min)", minutes, data.activity_target || 45),
   ].filter(Boolean);
 
   const scoreColor =
@@ -107,13 +107,22 @@ export default function CoachCard({ token, dateISO, refreshKey = 0 }) {
       )}
 
       <div className="mt-5 rounded-xl bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
-        <div className="flex items-baseline gap-3">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Balance score
-          </span>
-          <span className={`text-xl font-bold ${scoreColor}`}>
-            {data.score}/100
-          </span>
+        <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline gap-3">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Balance score
+            </span>
+            <span className={`text-xl font-bold ${scoreColor}`}>
+              {data.score}/100
+            </span>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-wider text-slate-500">Net Calories</div>
+            <div className="text-sm font-bold text-white">
+              {Math.round(totals.kcal || 0)} - {Math.round(data.burned_kcal || 0)} = 
+              <span className="ml-1 text-pm-cyan">{Math.round((totals.kcal || 0) - (data.burned_kcal || 0))}</span>
+            </div>
+          </div>
         </div>
         <ul className="mt-2 space-y-1 text-sm text-slate-300">
           {(data.messages || []).map((m, i) => (

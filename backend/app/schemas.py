@@ -34,6 +34,7 @@ class ActivityIn(BaseModel):
     minutes: int = Field(..., ge=0)
     steps: Optional[int] = Field(None, ge=0)
     type: Optional[str] = None  # "walk"|"run"|"gym"|...
+    kcal: Optional[float] = None  # new field
 
 # Accept either "calories"/"carbs_g" or the canonical names.
 class MealItem(BaseModel):

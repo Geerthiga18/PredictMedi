@@ -111,7 +111,7 @@ export default function TodayProgress({ token, goal = "maintain", refreshKey = 0
         <Bar label="Protein" value={totals.protein_g || 0} target={macros.protein_g || 0} unit="g" />
         <Bar label="Fat" value={totals.fat_g || 0} target={macros.fat_g || 0} unit="g" />
         <Bar label="Sugar" value={totals.sugar_g || 0} target={50} unit="g" goodLow />
-        <Bar label="Activity (min)" value={minutes} target={30} unit="min" />
+        <Bar label="Activity (min)" value={minutes} target={data.activity_target || 45} unit="min" />
       </div>
 
       <p className="mt-4 text-[10px] text-slate-500">

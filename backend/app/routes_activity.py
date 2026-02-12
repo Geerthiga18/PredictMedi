@@ -36,12 +36,19 @@ router = APIRouter(prefix="/activity", tags=["activity"])
 
 @router.post("/log", status_code=201)
 async def log_activity(payload: ActivityIn, user=Depends(get_current_user)):
+    # Calculate kcal if not provided
+    kcal = payload.kcal
+    if kcal is None:
+        weight = user.get("weightKg")
+        kcal = kcal_for_activity(payload.type, payload.minutes, weight)
+
     doc = {
         "userId": user["id"],
         "dateISO": payload.date.isoformat(),
         "minutes": payload.minutes,
         "steps": payload.steps,
         "type": (payload.type or "walk").lower(),
+        "kcal": kcal,
         "createdAt": datetime.utcnow().isoformat()
     }
     await activity.insert_one(doc)
@@ -85,13 +92,19 @@ async def activity_summary(
         total_minutes += m
         total_steps += s
 
-        kcal = kcal_for_activity(t, m, weight_kg)
-        total_kcal += kcal
+        # Use stored kcal if available, else calculate (migration)
+        stored_kcal = a.get("kcal")
+        if stored_kcal is not None:
+            k = float(stored_kcal)
+        else:
+            k = kcal_for_activity(t, m, weight_kg)
+        
+        total_kcal += k
 
         b = by_type.setdefault(t, {"minutes": 0, "steps": 0, "kcal": 0.0})
         b["minutes"] += m
         b["steps"] += s
-        b["kcal"] += kcal
+        b["kcal"] += k
 
     return {
         "dateISO": dateISO,
@@ -109,7 +122,14 @@ async def upsert_activity(payload: ActivityIn, user=Depends(get_current_user)):
         "dateISO": payload.date.isoformat(),
         "type": (payload.type or "walk").lower(),
     }
-    inc = {"minutes": int(payload.minutes)}
+    
+    # Calculate kcal for the *delta* we are adding
+    delta_kcal = payload.kcal
+    if delta_kcal is None:
+        weight = user.get("weightKg")
+        delta_kcal = kcal_for_activity(payload.type, payload.minutes, weight)
+
+    inc = {"minutes": int(payload.minutes), "kcal": float(delta_kcal)}
     if payload.steps is not None:
         inc["steps"] = int(payload.steps)
 
