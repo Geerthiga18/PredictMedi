@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import FoodSearch from "../components/FoodSearch";
-import AiLogInput from "../components/AiLogInput";
 import { api } from "../lib/api";
 
 export default function MealsLog({ token }) {
@@ -75,24 +74,6 @@ export default function MealsLog({ token }) {
 
   function remove(i) { setItems(prev => prev.filter((_,idx)=>idx!==i)); }
 
-  function handleAiLogged(res) {
-    if (res.parsed?.meals) {
-       const newMeals = res.parsed.meals.map(m => ({
-          desc: m.name,
-          grams: m.grams || 100, // Default to 100g if unknown, or maybe "1 serving" but grams expects number usually? Code displays it.
-          kcal: m.kcal,
-          carb_g: m.carb_g,
-          protein_g: m.protein_g,
-          fat_g: m.fat_g,
-          sugar_g: m.sugar_g,
-          fiber_g: m.fiber_g,
-          sodium_mg: m.sodium_mg,
-          fdcId: null
-       }));
-       setItems(prev => [...prev, ...newMeals]);
-    }
-  }
-
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
@@ -119,9 +100,6 @@ export default function MealsLog({ token }) {
           )}
         </div>
       </div>
-
-      {/* AI Log Input */}
-      <AiLogInput token={token} onLogged={handleAiLogged} />
 
       {/* Picker */}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">

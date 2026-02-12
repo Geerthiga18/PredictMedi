@@ -71,7 +71,7 @@ def adherence_score(plan_macros: dict, totals: dict, mins: int) -> tuple[int, li
     fiber= totals.get("fiber_g") or 0
 
     # weights sum to 1.0
-    W_KCAL, W_MAC, W_ACT, W_SUG = 0.35, 0.35, 0.20, 0.10
+    W_KCAL, W_MAC, W_ACT, W_SUG = 0.30, 0.30, 0.30, 0.10
 
     # 1) Calories: full pts inside ±10%, zero by ±20%
     if kcal_t > 0:
@@ -90,15 +90,16 @@ def adherence_score(plan_macros: dict, totals: dict, mins: int) -> tuple[int, li
     mac_score = sum(parts)/len(parts) if parts else 0.5
     score += W_MAC * mac_score
 
-    # 3) Activity: 30 min = full
-    act_score = min(1.0, (mins or 0)/30.0)
+    # 3) Activity: 30 min = full (1.0). Allow bonus up to 60 min (2.0).
+    # This allows "extra credit" for activity to boost the daily score.
+    act_score = min(2.0, (mins or 0)/30.0)
     score += W_ACT * act_score
 
     # 4) Sugar cap
     sug_score = 1.0 if sugar <= 50 else (0.5 if sugar <= 75 else 0.0)
     score += W_SUG * sug_score
 
-    final = round(score * 100)
+    final = min(100, round(score * 100))
 
     # --- Build rich, context-aware messages ---
 
