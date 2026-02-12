@@ -298,12 +298,6 @@ export default function App() {
                           refreshKey={refreshKey}
                         />
 
-                        <TodayProgress
-                          token={token}
-                          goal={user?.goal || "maintain"}
-                          refreshKey={refreshKey}
-                        />
-
                         <WeeklyReview
                           token={token}
                           refreshKey={refreshKey}

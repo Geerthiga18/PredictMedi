@@ -178,6 +178,7 @@ async def coach_weekly(
     day_rows = []
     total_kcal = 0.0
     total_minutes = 0
+    total_burned_kcal = 0.0
     days_with_data = 0
 
     for i in range(7):
@@ -191,7 +192,6 @@ async def coach_weekly(
                 if isinstance(v, (int,float)):
                     totals[k] += v
 
-        # sum activity minutes
         # sum activity minutes & calories
         mins = 0
         burned = 0.0
@@ -216,12 +216,15 @@ async def coach_weekly(
 
             total_kcal += totals["kcal"]
             total_minutes += mins
+            total_burned_kcal += burned
 
             day_rows.append({
                 "dateISO": d,
                 "score": score,
                 "minutes": mins,
                 "kcal": round(totals["kcal"], 1),
+                "burned_kcal": round(burned, 1),
+                "net_kcal": round(totals["kcal"] - burned, 1)
             })
 
     if days_with_data == 0:
@@ -243,6 +246,7 @@ async def coach_weekly(
 
     avg_kcal = round(total_kcal / days_with_data)
     avg_minutes = round(total_minutes / days_with_data)
+    avg_burned_kcal = round(total_burned_kcal / days_with_data)
     base_plan = plan(user, "light", goal)
     target_kcal = base_plan["macros"]["kcal"]
     target_minutes = get_activity_goal(user) # Use dynamic goal
@@ -273,6 +277,7 @@ async def coach_weekly(
         "endISO": endISO,
         "days_logged": days_with_data,
         "avg_kcal": avg_kcal,
+        "avg_burned_kcal": avg_burned_kcal,
         "target_kcal": target_kcal,
         "avg_minutes": avg_minutes,
         "target_minutes": target_minutes,

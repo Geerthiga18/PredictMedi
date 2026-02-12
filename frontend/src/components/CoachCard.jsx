@@ -80,88 +80,127 @@ export default function CoachCard({ token, dateISO, refreshKey = 0 }) {
       : "text-red-400";
 
   return (
-    <div className="glass-card p-5 md:p-6 relative overflow-hidden">
-      <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-pm-cyan/5 blur-3xl" />
-      <div className="pointer-events-none absolute -left-12 bottom-0 h-24 w-24 rounded-full bg-pm-purple/5 blur-2xl" />
+    <div className="glass-card overflow-hidden relative group">
+      {/* Background Decor */}
+      <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-pm-cyan/10 blur-[100px] transition-all group-hover:bg-pm-cyan/20" />
+      <div className="pointer-events-none absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-pm-purple/10 blur-[100px]" />
 
-      <div className="flex items-baseline justify-between gap-2 relative">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-pm-accent">
-            Daily Coach
-          </p>
-          <h3 className="mt-0.5 text-lg font-bold text-white">
-            How today stacks up
-          </h3>
-        </div>
-        <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-slate-400 ring-1 ring-white/10">
-          {data.dateISO}
-        </span>
-      </div>
-
-      {stats.length > 0 && (
-        <div className="mt-4 grid grid-cols-2 gap-3 stagger-children">
-          {stats.map((s, i) => (
-            <Stat key={i} {...s} />
-          ))}
-        </div>
-      )}
-
-      <div className="mt-5 rounded-xl bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
-        <div className="flex items-baseline justify-between">
-          <div className="flex items-baseline gap-3">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-              Balance score
-            </span>
-            <span className={`text-xl font-bold ${scoreColor}`}>
-              {data.score}/100
-            </span>
-          </div>
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500">Net Calories</div>
-            <div className="text-sm font-bold text-white">
-              {Math.round(totals.kcal || 0)} - {Math.round(data.burned_kcal || 0)} = 
-              <span className="ml-1 text-pm-cyan">{Math.round((totals.kcal || 0) - (data.burned_kcal || 0))}</span>
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10 ${scoreColor}`}>
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-pm-accent">AI Health Coach</p>
+              <h3 className="text-xl font-bold text-white tracking-tight">Today's Performance</h3>
             </div>
           </div>
+          <div className="text-right">
+             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Net Calories</div>
+             <div className="mt-0.5 text-lg font-black text-white">
+                <span className="text-pm-cyan">{Math.round((totals.kcal || 0) - (data.burned_kcal || 0))}</span>
+                <span className="ml-1 text-[10px] font-medium text-slate-500 uppercase tracking-tighter">kcal net</span>
+             </div>
+          </div>
         </div>
-        <ul className="mt-2 space-y-1 text-sm text-slate-300">
-          {(data.messages || []).map((m, i) => (
-            <li key={i} className="flex items-start gap-2 animate-slide-up" style={{ animationDelay: `${i * 0.05}s` }}>
-              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-pm-accent/60" />
-              {m}
-            </li>
-          ))}
-        </ul>
+
+        <div className="mt-8 grid gap-8 lg:grid-cols-5 items-center">
+          {/* Circular Score */}
+          <div className="lg:col-span-2 flex flex-col items-center justify-center py-4 border-r border-white/5">
+            <div className="relative h-32 w-32">
+              <svg className="h-full w-full transform -rotate-90">
+                <circle
+                  cx="64" cy="64" r="58"
+                  fill="none" stroke="currentColor" strokeWidth="8"
+                  className="text-white/5"
+                />
+                <circle
+                  cx="64" cy="64" r="58"
+                  fill="none" stroke="currentColor" strokeWidth="8"
+                  strokeDasharray={364}
+                  strokeDashoffset={364 - (364 * (data.score || 0)) / 100}
+                  strokeLinecap="round"
+                  className={`${scoreColor} transition-all duration-1000 ease-out`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className={`text-3xl font-black ${scoreColor}`}>{data.score}</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Score</span>
+              </div>
+            </div>
+            <p className={`mt-4 text-xs font-bold uppercase tracking-widest ${scoreColor}`}>
+              {data.score >= 80 ? 'Excellent Balance' : data.score >= 60 ? 'Good Progress' : 'Needs Focus'}
+            </p>
+          </div>
+
+          {/* Stats List */}
+          <div className="lg:col-span-3 space-y-5">
+            {stats.map((s, i) => (
+              <Stat key={i} {...s} delay={i * 0.1} />
+            ))}
+          </div>
+        </div>
+
+        {/* AI Insight Box */}
+        <div className="mt-8 rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10 hover:bg-white/[0.05] transition-colors">
+          <div className="flex items-center gap-2 mb-3">
+             <div className="h-1.5 w-1.5 rounded-full bg-pm-accent shadow-[0_0_8px_rgba(6,214,160,0.6)]" />
+             <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Coach Insights</span>
+          </div>
+          <ul className="space-y-3">
+            {(data.messages || []).map((m, i) => (
+              <li key={i} className="flex items-start gap-3 animate-slide-up" style={{ animationDelay: `${0.5 + i * 0.1}s` }}>
+                <div className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-white/20" />
+                <p className="text-sm leading-relaxed text-slate-300">{m}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
 }
 
-function Stat({ label, val, pct, widthPct }) {
+function Stat({ label, val, pct, widthPct, delay }) {
   const key = label.toLowerCase();
+  
+  const config = {
+    intake:   { color: "bg-pm-cyan",   icon: <path d="M3 6l3 18h12l3-18H3z" /> }, // Cup
+    carbs:    { color: "bg-amber-400", icon: <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /> }, // Layers
+    protein:  { color: "bg-pm-purple", icon: <path d="M12 21l-8.2-5.4L2 7l10-5 10 5-1.8 8.6L12 21z" /> }, // Muscle/Shield
+    fat:      { color: "bg-rose-500",  icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /> }, // Droplet/Shield
+    activity: { color: "bg-pm-accent", icon: <path d="M13 10V3L4 14h7v7l9-11h-7z" /> }, // Bolt
+  };
 
-  const accent =
-    key.includes("activity")
-      ? "bg-pm-accent"
-      : key.includes("protein")
-      ? "bg-pm-purple"
-      : key.includes("fat")
-      ? "bg-rose-500"
-      : key.includes("carb")
-      ? "bg-amber-400"
-      : "bg-pm-cyan";
+  const type = key.includes("intake") ? "intake" : 
+               key.includes("carbs") ? "carbs" : 
+               key.includes("protein") ? "protein" : 
+               key.includes("fat") ? "fat" : "activity";
+  
+  const { color, icon } = config[type];
 
   return (
-    <div className="space-y-1.5 animate-fade-in">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-medium text-slate-300">{label}</span>
-        <span className="font-semibold text-white">
-          {val} <span className="text-slate-500">({pct}%)</span>
+    <div className="group/stat animate-fade-in" style={{ animationDelay: `${delay}s` }}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className={`flex h-6 w-6 items-center justify-center rounded-lg bg-white/5 ring-1 ring-white/10 group-hover/stat:ring-${type}`}>
+             <svg className={`w-3.5 h-3.5 ${color.replace('bg-','text-')}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+               {icon}
+             </svg>
+          </div>
+          <span className="text-xs font-semibold text-slate-400 group-hover/stat:text-white transition-colors">{label}</span>
+        </div>
+        <span className="text-xs font-bold text-white">
+          {val} <span className="ml-1 text-[10px] text-slate-500">({pct}%)</span>
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-white/5">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
         <div
-          className={`h-2 rounded-full ${accent} animate-bar-fill`}
+          className={`h-full rounded-full ${color} animate-bar-fill shadow-[0_0_8px_rgba(0,0,0,0.2)]`}
           style={{ "--bar-width": `${widthPct || 0}%`, width: `${widthPct || 0}%` }}
         />
       </div>
