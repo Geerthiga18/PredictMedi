@@ -22,15 +22,22 @@ Output: STRICT JSON, no explanation, exactly this shape:
   ],
   "activities": [
     {
-      "type": "walking|running|gym|cycling|other",
+      "type": "walk_easy|walk|walk_brisk|run_easy|run|gym|cycle|yoga|hiit|strength|other",
       "minutes": number,
-      "intensity": "low|moderate|high"
+      "intensity": "low|moderate|high",
+      "kcal_burned": number
     }
   ]
 }
 
-If you are unsure about calories, give a reasonable conservative estimate
-based on common values in South Asian/Sri Lankan foods, but DO NOT say 'null' unless impossible.
+For meals: if unsure about calories/macros, give a reasonable conservative estimate
+based on common values in South Asian/Sri Lankan foods.
+CRITICAL INSTRUCTION FOR SUGAR:
+- You MUST estimate `sugar_g` for any item that is naturally sweet (fruit) or has added sugar (sweets, soda, tea with sugar, biscuits, cake).
+- Do NOT return 0 for these items. Use standard nutritional data to guess (e.g. apple = 10g sugar, milk tea = 5-10g sugar).
+- Only return 0 if the item is savory or water.
+
+For activities: estimate kcal_burned using standard MET-based calculations assuming ~70 kg body weight.
 """
 
 def parse_day(text: str):

@@ -16,13 +16,17 @@ METS = {
     "run_easy": 8.0,           # ~5 mph (12 min/mi)
     "run": 9.8,                # ~6 mph
     # cycling
+    "cycle": 7.5,              # general cycling (moderate-vigorous)
     "cycle_easy": 4.0,         # leisure
     "cycle_moderate": 6.8,     # 10–12 mph
     "cycle_vigorous": 8.0,     # 12–14 mph
     # other
-    "strength": 3.5,           # general weights
+    "gym": 5.0,                # general resistance/weight training
+    "strength": 5.0,           # weight lifting
     "yoga": 2.5,
     "hiit": 8.0,
+    "swim": 6.0,
+    "other": 4.0,
 }
 
 def kcal_for_activity(act_type: str, minutes: int, weight_kg: float | None) -> float:

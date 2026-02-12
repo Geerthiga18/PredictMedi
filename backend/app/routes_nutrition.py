@@ -68,23 +68,30 @@ async def search_foods(q: str = Query(..., min_length=2), pageSize: int = 15):
         "api_key": FDC_API_KEY,
         "query": q,
         "pageSize": max(1, min(pageSize, 50)),
-        "dataType": ["Survey (FNDDS)", "SR Legacy", "Foundation"],
+      #  "dataType": ["Survey (FNDDS)", "SR Legacy", "Foundation"],
     }
-    async with httpx.AsyncClient(timeout=8) as client:
-        r = await client.get(f"{FDC_BASE}/foods/search", params=params)
-        r.raise_for_status()
-        data = r.json()
-        items = []
-        for f in data.get("foods", []):
-            items.append({
-                "fdcId": f.get("fdcId"),
-                "description": f.get("description"),
-                "brandOwner": f.get("brandOwner"),
-                "dataType": f.get("dataType"),
-                "servingSize": f.get("servingSize"),
-                "servingSizeUnit": f.get("servingSizeUnit"),
-            })
-        return {"total": data.get("totalHits", 0), "items": items}
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            r = await client.get(f"{FDC_BASE}/foods/search", params=params)
+            r.raise_for_status()
+            data = r.json()
+            items = []
+            for f in data.get("foods", []):
+                items.append({
+                    "fdcId": f.get("fdcId"),
+                    "description": f.get("description"),
+                    "brandOwner": f.get("brandOwner"),
+                    "dataType": f.get("dataType"),
+                    "servingSize": f.get("servingSize"),
+                    "servingSizeUnit": f.get("servingSizeUnit"),
+                })
+            return {"total": data.get("totalHits", 0), "items": items}
+        except httpx.HTTPStatusError as e:
+            # Pass through the upstream error
+            detail = f"FDC API Error: {e.response.text}"
+            raise HTTPException(status_code=e.response.status_code, detail=detail)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 @router.get("/food/{fdcId}")
 async def food_detail(fdcId: int):

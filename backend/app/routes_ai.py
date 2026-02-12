@@ -30,19 +30,20 @@ The user will describe in free text what they ATE and what ACTIVITIES they did T
 
 Your job:
 1. Extract MEALS: break into reasonable items.
-2. For each item, estimate:
-   - kcal
+2. For each meal item, estimate:
+   - kcal (calories consumed)
    - carb_g
    - protein_g
    - fat_g
-   - sugar_g
+   - sugar_g (CRITICAL: estimate this for all items, especially fruits/sweets/sauces. Do not return 0 unless water/plain tea)
 If you are unsure, make a sensible estimate based on common values.
 Prefer typical Indian/South Asian/Sri Lankan foods when relevant.
 
 3. Extract ACTIVITIES:
-   - type: one of ["walk_easy","walk","walk_brisk","run_easy","run","gym","cycle","other"]
+   - type: one of ["walk_easy","walk","walk_brisk","run_easy","run","gym","cycle","yoga","hiit","strength","other"]
    - minutes: integer
    - intensity: "low" | "moderate" | "high"
+   - kcal_burned: estimated calories burned for this activity (use standard MET-based calculation assuming ~70 kg body weight if not specified)
 
 Output:
 Return STRICT JSON ONLY. No explanation, no markdown.
@@ -63,7 +64,8 @@ Format:
     {
       "type": "walk_brisk",
       "minutes": 30,
-      "intensity": "moderate"
+      "intensity": "moderate",
+      "kcal_burned": 120
     }
   ]
 }
@@ -98,13 +100,26 @@ def _normalize_meal_item(m):
     def num(key):
         v = m.get(key)
         return float(v) if isinstance(v, (int, float)) else None
+    sugar = num("sugar_g")
+    
+    # Heuristic: If sugar is 0/missing but description implies sweet, default to 10g or 50% carbs
+    if not sugar or sugar <= 0:
+        name_lower = desc.lower()
+        sweet_keywords = ["sugar", "sweet", "cake", "candy", "chocolate", "dessert", "soda", "coke", "pepsi", "sprite", "ice cream", "cookie", "biscuit", "fruit", "apple", "banana", "mango", "orange", "juice", "honey", "syrup", "jam", "milk tea"]
+        if any(w in name_lower for w in sweet_keywords):
+            sugar = 10.0
+            # If carbs known, cap sugar at carbs (or maybe 80% carbs)
+            c = num("carb_g")
+            if c and c > 0:
+                sugar = min(sugar, c * 0.9)
+
     return {
         "name": desc,
         "kcal": num("kcal"),
         "carb_g": num("carb_g"),
         "protein_g": num("protein_g"),
         "fat_g": num("fat_g"),
-        "sugar_g": num("sugar_g"),
+        "sugar_g": sugar,
     }
 
 def _normalize_activity_item(a):
@@ -115,16 +130,23 @@ def _normalize_activity_item(a):
     if t not in [
         "walk_easy","walk","walk_brisk",
         "run_easy","run",
-        "gym","cycle","other"
+        "gym","cycle","yoga","hiit","strength","other"
     ]:
         t = "other"
     intensity = (a.get("intensity") or "").strip().lower()
     if intensity not in ["low","moderate","high"]:
         intensity = "moderate"
+    # Extract AI-estimated kcal_burned if provided
+    kcal_burned = a.get("kcal_burned")
+    if isinstance(kcal_burned, (int, float)) and kcal_burned > 0:
+        kcal_burned = float(kcal_burned)
+    else:
+        kcal_burned = None
     return {
         "type": t,
         "minutes": int(minutes),
         "intensity": intensity,
+        "kcal_burned": kcal_burned,
     }
 
 @router.post("/ingest")
@@ -224,22 +246,35 @@ async def ai_ingest(
 
     # 1) Store meals as ONE log entry for that date (append-style)
     if meals_in:
-        doc = {
-            "userId": user["id"],
-            "dateISO": dateISO,
-            "items": meals_in,
-            "createdAt": datetime.utcnow().isoformat()
-        }
-        await meals.insert_one(doc)
+        # Calculate total calories to increment
+        added_kcal = sum((m.get("kcal") or 0) for m in meals_in)
+        
+        await meals.update_one(
+            {"userId": user["id"], "dateISO": dateISO},
+            {
+                "$push": { "items": { "$each": meals_in } },
+                "$inc": { "totalCalories": added_kcal },
+                "$setOnInsert": { "createdAt": datetime.utcnow().isoformat() },
+                "$set": { "updatedAt": datetime.utcnow().isoformat() }
+            },
+            upsert=True
+        )
 
     # 2) Store/merge activities per date+type (like routes_activity upsert)
+    from .routes_activity import kcal_for_activity
+    weight_kg = user.get("weightKg")
+
     for a in acts_in:
         q = {
             "userId": user["id"],
             "dateISO": dateISO,
             "type": a["type"]
         }
-        inc = {"minutes": a["minutes"]}
+        # Use AI-estimated kcal if available, otherwise calculate via MET formula
+        kcal = a.get("kcal_burned")
+        if kcal is None:
+            kcal = kcal_for_activity(a["type"], a["minutes"], weight_kg)
+        inc = {"minutes": a["minutes"], "kcal": float(kcal)}
         await activity.update_one(
             q,
             {

@@ -39,6 +39,7 @@ class ActivityIn(BaseModel):
 # Accept either "calories"/"carbs_g" or the canonical names.
 class MealItem(BaseModel):
     name: str
+    grams: Optional[float] = None
     kcal: Optional[float] = None
     protein_g: Optional[float] = None
     carb_g: Optional[float] = None
@@ -46,6 +47,7 @@ class MealItem(BaseModel):
     fiber_g: Optional[float] = None
     sugar_g: Optional[float] = None
     sodium_mg: Optional[float] = None
+    fdcId: Optional[int] = None
     # aliases for old/UI variations
     calories: Optional[float] = Field(None, alias="calories")
     carbs_g: Optional[float] = Field(None, alias="carbs_g")

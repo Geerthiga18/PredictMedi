@@ -12,7 +12,7 @@ async def get_meal_log(
     date: str = Query(..., description="YYYY-MM-DD"),
     user=Depends(get_current_user),
 ):
-    doc = await meals.find_one({"userId": user["id"], "dateISO": date})
+    doc = await meals.find_one({"userId": user["id"], "dateISO": date}, sort=[("_id", -1)])
     if not doc:
         # Return the shape your UI expects
         return {"items": []}
@@ -46,7 +46,16 @@ async def log_meal(payload: MealIn, user=Depends(get_current_user)):
         "notes": payload.notes,
         "createdAt": datetime.utcnow().isoformat()
     }
-    await meals.insert_one(doc)
+    await meals.update_one(
+        {"userId": user["id"], "dateISO": payload.date.isoformat()},
+        {"$set": {
+            "items": [i.model_dump() for i in payload.items],
+            "totalCalories": total_cal,
+            "notes": payload.notes,
+            "updatedAt": datetime.utcnow().isoformat()
+        }},
+        upsert=True
+    )
     return {"ok": True, "totalCalories": total_cal}
 
 
@@ -71,8 +80,9 @@ async def meals_summary(
         "fiber_g": 0, "sugar_g": 0, "sodium_mg": 0
     }
     count = 0
-    async for doc in meals.find({"userId": user["id"], "dateISO": dateISO}):
-        count += 1
+    doc = await meals.find_one({"userId": user["id"], "dateISO": dateISO}, sort=[("_id", -1)])
+    if doc:
+        count = 1
         for it in (doc.get("items") or []):
             for k in totals.keys():
                 v = it.get(k)
@@ -86,13 +96,15 @@ async def get_meals_for_day(
     dateISO: str = Query(..., min_length=8),
     user=Depends(get_current_user)
 ):
-    docs = [doc async for doc in meals.find({"userId": user["id"], "dateISO": dateISO})]
+    doc = await meals.find_one({"userId": user["id"], "dateISO": dateISO}, sort=[("_id", -1)])
     items = []
     totals = {"kcal":0,"carb_g":0,"protein_g":0,"fat_g":0,"fiber_g":0,"sugar_g":0,"sodium_mg":0}
-    for d in docs:
-        for it in (d.get("items") or []):
+    
+    if doc:
+        for it in (doc.get("items") or []):
             items.append(it)
             for k in totals:
                 v = it.get(k)
                 if isinstance(v,(int,float)): totals[k] += v
-    return {"dateISO": dateISO, "count": len(docs), "items": items, "totals": totals}
+    
+    return {"dateISO": dateISO, "count": 1 if doc else 0, "items": items, "totals": totals}

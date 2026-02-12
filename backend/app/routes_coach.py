@@ -7,11 +7,10 @@ from collections import defaultdict
 
 # Dynamic goal logic
 def get_activity_goal(user: dict) -> int:
-    # 1. Start with requested base of 45 mins
-    goal = 45
+    # 1. Start with a higher active base
+    goal = 60
     
-    # 2. Adjust for age (older adults might need slightly less intensity but duration is good, 
-    #    so let's keep it simple: reduce to 30 if age > 65)
+    # 2. Adjust for age
     age = user.get("age")
     if age and age > 65:
         goal = 30
@@ -19,7 +18,7 @@ def get_activity_goal(user: dict) -> int:
     # 3. Adjust for goal
     user_goal = (user.get("goal") or "maintain").lower()
     if user_goal == "lose":
-        goal += 15  # 60 mins for weight loss
+        goal += 30  # 90 mins for weight loss
         
     return goal
 
@@ -93,19 +92,17 @@ async def coach_motivate(dateISO: str = Query(default=None), goal: str = "mainta
                 if isinstance(v, (int,float)): totals[k] += v
 
     score, messages = adherence_score(p["macros"], totals, mins)
-    
-    # We'll calculate net calories = Intake - Burned
-    # But for "Net", usually it means Intake - Burned. 
-    # The user request: "from the calorie we take we will burn some calories so we can finalize our calorie intake"
-    # This usually means Net = Intake - Exercise.
-    # We'll pass `burned_kcal` and `net_kcal` to frontend.
+    badge = appreciation_badge(score)
+    net_kcal = round((totals.get("kcal") or 0) - burned_kcal)
     
     return {
         "dateISO": dateISO,
         "activity_level": act_level,
         "minutes": mins,
-        "activity_target": activity_target, # NEW
-        "burned_kcal": round(burned_kcal),  # NEW
+        "activity_target": activity_target,
+        "burned_kcal": round(burned_kcal),
+        "net_kcal": net_kcal,
+        "badge": badge,
         "plan": p,
         "nutrition_totals": totals,
         "score": score,
@@ -164,9 +161,20 @@ async def coach_weekly(
         "dateISO": {"$gte": startISO, "$lte": endISO},
     })]
 
-    meals_by_day = defaultdict(list)
+    # deduplicate meals: keep only the latest doc per day
+    docs_by_date = {}
     for m in meal_docs:
         d = m.get("dateISO")
+        existing = docs_by_date.get(d)
+        if not existing:
+            docs_by_date[d] = m
+        else:
+            # Assume higher _id is newer (or check createdAt)
+            if m.get("_id") > existing.get("_id"):
+                docs_by_date[d] = m
+
+    meals_by_day = defaultdict(list)
+    for d, m in docs_by_date.items():
         for it in (m.get("items") or []):
             meals_by_day[d].append(it)
 
@@ -175,10 +183,17 @@ async def coach_weekly(
         d = a.get("dateISO")
         acts_by_day[d].append(a)
 
+    from .routes_activity import kcal_for_activity
+    w = user.get("weightKg")
+
     day_rows = []
     total_kcal = 0.0
     total_minutes = 0
     total_burned_kcal = 0.0
+    total_carb = 0.0
+    total_protein = 0.0
+    total_fat = 0.0
+    total_sugar = 0.0
     days_with_data = 0
 
     for i in range(7):
@@ -195,8 +210,6 @@ async def coach_weekly(
         # sum activity minutes & calories
         mins = 0
         burned = 0.0
-        from .routes_activity import kcal_for_activity
-        w = user.get("weightKg")
         
         for a in acts_by_day.get(d, []):
             v = a.get("minutes") or a.get("durationMin") or 0
@@ -217,14 +230,23 @@ async def coach_weekly(
             total_kcal += totals["kcal"]
             total_minutes += mins
             total_burned_kcal += burned
+            total_carb += totals["carb_g"]
+            total_protein += totals["protein_g"]
+            total_fat += totals["fat_g"]
+            total_sugar += totals["sugar_g"]
 
             day_rows.append({
                 "dateISO": d,
                 "score": score,
-                "minutes": mins,
+                "badge": appreciation_badge(score),
+                "minutes": round(mins),
                 "kcal": round(totals["kcal"], 1),
                 "burned_kcal": round(burned, 1),
-                "net_kcal": round(totals["kcal"] - burned, 1)
+                "net_kcal": round(totals["kcal"] - burned, 1),
+                "carb_g": round(totals["carb_g"], 1),
+                "protein_g": round(totals["protein_g"], 1),
+                "fat_g": round(totals["fat_g"], 1),
+                "sugar_g": round(totals["sugar_g"], 1),
             })
 
     if days_with_data == 0:
@@ -232,57 +254,157 @@ async def coach_weekly(
             "startISO": startISO,
             "endISO": endISO,
             "days_logged": 0,
+            "weekly_score": 0,
+            "weekly_badge": "✨ Keep Going",
             "avg_kcal": 0,
             "target_kcal": None,
             "avg_minutes": 0,
             "target_minutes": 30,
+            "avg_macros": {"carb_g": 0, "protein_g": 0, "fat_g": 0},
+            "target_macros": {"carb_g": 0, "protein_g": 0, "fat_g": 0},
             "good_days": 0,
             "bad_days": 0,
+            "streak": 0,
+            "trend": "stable",
+            "best_day": None,
+            "worst_day": None,
             "days": [],
             "messages": [
-                "No meals or activity logged in the last 7 days. Start logging to get your weekly review."
+                "📭 No meals or activity logged in the last 7 days. Start logging to get your weekly review."
             ],
         }
 
     avg_kcal = round(total_kcal / days_with_data)
     avg_minutes = round(total_minutes / days_with_data)
     avg_burned_kcal = round(total_burned_kcal / days_with_data)
+    avg_carb = round(total_carb / days_with_data, 1)
+    avg_protein = round(total_protein / days_with_data, 1)
+    avg_fat = round(total_fat / days_with_data, 1)
+    avg_sugar = round(total_sugar / days_with_data, 1)
+
     base_plan = plan(user, "light", goal)
     target_kcal = base_plan["macros"]["kcal"]
-    target_minutes = get_activity_goal(user) # Use dynamic goal
+    target_macros = {
+        "carb_g": base_plan["macros"].get("carb_g", 0),
+        "protein_g": base_plan["macros"].get("protein_g", 0),
+        "fat_g": base_plan["macros"].get("fat_g", 0),
+    }
+    target_minutes = get_activity_goal(user)
 
     good_days = sum(1 for d in day_rows if d["score"] >= 70)
     bad_days = days_with_data - good_days
 
+    # Weekly score = average of daily scores
+    weekly_score = round(sum(d["score"] for d in day_rows) / len(day_rows)) if day_rows else 0
+    weekly_badge = appreciation_badge(weekly_score)
+
+    # Best / worst day
+    best_day = max(day_rows, key=lambda d: d["score"]) if day_rows else None
+    worst_day = min(day_rows, key=lambda d: d["score"]) if day_rows else None
+
+    # Streak: consecutive days with score >= 70 ending on last logged day
+    streak = 0
+    for d in reversed(day_rows):
+        if d["score"] >= 70:
+            streak += 1
+        else:
+            break
+
+    # Trend: compare first half vs second half avg scores
+    if len(day_rows) >= 4:
+        mid = len(day_rows) // 2
+        first_half_avg = sum(d["score"] for d in day_rows[:mid]) / mid
+        second_half_avg = sum(d["score"] for d in day_rows[mid:]) / (len(day_rows) - mid)
+        diff = second_half_avg - first_half_avg
+        if diff > 8:
+            trend = "improving"
+        elif diff < -8:
+            trend = "declining"
+        else:
+            trend = "stable"
+    else:
+        trend = "stable"
+
+    # --- Build rich weekly messages ---
     messages = []
 
-    # calories trend
-    if abs(avg_kcal - target_kcal) / target_kcal <= 0.05:
-      messages.append("Your average calories this week are nicely aligned with your target.")
-    elif avg_kcal > target_kcal:
-      messages.append("On average you ate above your target. Consider lighter options or more movement on some days.")
+    # Weekly headline
+    if weekly_score >= 85:
+        messages.append(f"🏆 Exceptional week! Your weekly score of {weekly_score} shows outstanding consistency.")
+    elif weekly_score >= 70:
+        messages.append(f"💪 Strong week overall with a {weekly_score} weekly score. You're building great habits.")
+    elif weekly_score >= 50:
+        messages.append(f"📊 Your weekly score is {weekly_score}. Some good days and some that need attention — consistency is key.")
     else:
-      messages.append("On average you ate below your target. Make sure you are fueling enough, especially with protein.")
+        messages.append(f"🌱 Room to grow this week (score {weekly_score}). Focus on logging regularly and hitting small daily targets.")
 
-    # activity trend
+    # Streak
+    if streak >= 5:
+        messages.append(f"🔥 Incredible {streak}-day streak of balanced days! Don't break the chain!")
+    elif streak >= 3:
+        messages.append(f"⚡ Nice {streak}-day streak! Keep pushing to maintain it through the week.")
+
+    # Trend
+    if trend == "improving":
+        messages.append("📈 Your scores are trending upward — the improvements in the second half of the week show real progress.")
+    elif trend == "declining":
+        messages.append("📉 Scores dipped toward the end of the week. Try to maintain momentum on weekends.")
+
+    # Calories
+    if target_kcal and target_kcal > 0:
+        kcal_diff_pct = abs(avg_kcal - target_kcal) / target_kcal
+        if kcal_diff_pct <= 0.05:
+            messages.append(f"🎯 Average intake of {avg_kcal} kcal is perfectly aligned with your {target_kcal} kcal target.")
+        elif avg_kcal > target_kcal:
+            messages.append(f"📈 Average intake is {avg_kcal} kcal vs {target_kcal} target (+{avg_kcal - target_kcal}). Trim portions or add movement on heavier days.")
+        else:
+            messages.append(f"📉 Average intake is {avg_kcal} kcal vs {target_kcal} target ({avg_kcal - target_kcal}). Ensure you're fueling enough, especially protein.")
+
+    # Activity
     if avg_minutes >= target_minutes:
-      messages.append("You are consistently active. Good job maintaining regular movement.")
+        messages.append(f"🏃 Averaging {avg_minutes} min/day of activity (target {target_minutes}) — excellent consistency.")
+    elif avg_minutes >= target_minutes * 0.7:
+        messages.append(f"🚶 Activity at {avg_minutes} min/day is close to your {target_minutes}-min target. A few extra walks will close the gap.")
     else:
-      messages.append("Weekly activity is low. Try to reach at least 30 minutes on most days.")
+        messages.append(f"⚠️ Activity is low at {avg_minutes} min/day vs {target_minutes}-min target. Try scheduling movement into your routine.")
 
-    messages.append(f"{good_days} out of {days_with_data} logged days met your overall balance goal.")
+    # Protein
+    if target_macros["protein_g"] > 0:
+        prot_ratio = avg_protein / target_macros["protein_g"]
+        if prot_ratio >= 0.9:
+            messages.append(f"💪 Protein averaging {avg_protein}g/day — excellent for recovery and lean mass.")
+        elif prot_ratio < 0.6:
+            messages.append(f"🥚 Protein is low at {avg_protein}g avg (target {target_macros['protein_g']}g). Prioritize eggs, dairy, legumes, or lean meat.")
+
+    # Sugar
+    if avg_sugar > 60:
+        messages.append(f"🚨 Sugar averaged {avg_sugar}g/day this week. Cutting sweet drinks and processed snacks would help significantly.")
+    elif avg_sugar > 50:
+        messages.append(f"⚠️ Sugar averaged {avg_sugar}g/day — slightly above the 50g guideline. Watch hidden sugars in sauces and packaged foods.")
+
+    # Good/bad days summary
+    messages.append(f"📅 {good_days} of {days_with_data} logged days met your balance goal (score ≥ 70).")
 
     return {
         "startISO": startISO,
         "endISO": endISO,
         "days_logged": days_with_data,
+        "weekly_score": weekly_score,
+        "weekly_badge": weekly_badge,
         "avg_kcal": avg_kcal,
         "avg_burned_kcal": avg_burned_kcal,
         "target_kcal": target_kcal,
         "avg_minutes": avg_minutes,
         "target_minutes": target_minutes,
+        "avg_macros": {"carb_g": avg_carb, "protein_g": avg_protein, "fat_g": avg_fat, "sugar_g": avg_sugar},
+        "target_macros": target_macros,
         "good_days": good_days,
         "bad_days": bad_days,
+        "streak": streak,
+        "trend": trend,
+        "best_day": best_day,
+        "worst_day": worst_day,
         "days": day_rows,
         "messages": messages,
     }
+
